@@ -3,998 +3,570 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spa KPI Dashboard · YTD 2026</title>
+<title>Spa KPI Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --sage: #8a9e8c;
-    --sage-light: #b8c9ba;
-    --sage-dark: #5a6e5c;
-    --cream: #f5f0e8;
-    --clay: #c4a882;
-    --clay-dark: #9e7f5a;
-    --charcoal: #2c2c2c;
-    --mid: #666;
-    --light: #999;
-    --border: rgba(138,158,140,0.25);
-    --card-bg: rgba(255,252,246,0.9);
-    --alert: #c47a5a;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: 'DM Mono', monospace;
-    background: var(--cream);
-    color: var(--charcoal);
-    min-height: 100vh;
-    background-image:
-      radial-gradient(ellipse at 20% 10%, rgba(184,201,186,0.3) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, rgba(196,168,130,0.2) 0%, transparent 50%);
-  }
-
-  /* LOADING */
-  #loading {
-    position: fixed; inset: 0;
-    background: var(--cream);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    z-index: 1000;
-    gap: 20px;
-    transition: opacity 0.4s;
-  }
-  #loading h2 {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 300; font-style: italic;
-    font-size: 1.6rem; color: var(--sage-dark);
-  }
-  #loading p { font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--light); }
-  .spinner {
-    width: 32px; height: 32px;
-    border: 2px solid var(--border);
-    border-top-color: var(--sage);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ERROR */
-  #error-msg {
-    display: none;
-    position: fixed; inset: 0;
-    background: var(--cream);
-    align-items: center; justify-content: center;
-    flex-direction: column; gap: 16px; z-index: 1000;
-  }
-  #error-msg h2 { font-family: 'Cormorant Garamond', serif; font-weight: 300; color: var(--alert); font-size: 1.4rem; }
-  #error-msg p { font-size: 0.68rem; color: var(--mid); max-width: 400px; text-align: center; line-height: 1.8; }
-  #error-msg button {
-    font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em;
-    text-transform: uppercase; padding: 10px 24px;
-    border: 1px solid var(--sage); background: none; cursor: pointer; color: var(--sage-dark);
-  }
-
-  #app { display: none; }
-
-  header {
-    padding: 48px 48px 32px;
-    border-bottom: 1px solid var(--border);
-    display: flex; justify-content: space-between; align-items: flex-end;
-  }
-  .logo-area h1 {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 2.8rem; font-weight: 300; letter-spacing: 0.04em; color: var(--charcoal); line-height: 1;
-  }
-  .logo-area h1 em { font-style: italic; color: var(--sage-dark); }
-  .logo-area p { font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--light); margin-top: 6px; }
-  .header-meta { text-align: right; font-size: 0.68rem; color: var(--light); letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.8; }
-  .header-meta .live-dot {
-    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-    background: var(--sage); margin-right: 6px; animation: pulse 2s ease-in-out infinite;
-  }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-  nav {
-    padding: 0 48px; border-bottom: 1px solid var(--border); display: flex; gap: 0;
-  }
-  nav button {
-    font-family: 'DM Mono', monospace; font-size: 0.68rem; letter-spacing: 0.12em;
-    text-transform: uppercase; background: none; border: none; padding: 16px 24px;
-    cursor: pointer; color: var(--light); border-bottom: 2px solid transparent; transition: all 0.2s;
-  }
-  nav button:hover { color: var(--sage-dark); }
-  nav button.active { color: var(--sage-dark); border-bottom-color: var(--sage); }
-
-  .view { display: none; padding: 40px 48px 60px; }
-  .view.active { display: block; }
-
-  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
-  .kpi-card {
-    background: var(--card-bg); border: 1px solid var(--border); padding: 24px;
-    position: relative; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s;
-    animation: fadeUp 0.5s ease both;
-  }
-  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(90,110,92,0.12); }
-  .kpi-card::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    background: linear-gradient(90deg, var(--sage), var(--clay)); opacity: 0; transition: opacity 0.2s;
-  }
-  .kpi-card:hover::before { opacity: 1; }
-  .kpi-card.alert::before { opacity: 1; background: linear-gradient(90deg, var(--alert), #e8a080); }
-  .kpi-card.alert { border-color: rgba(196,122,90,0.3); }
-  .kpi-card:nth-child(1){animation-delay:.05s} .kpi-card:nth-child(2){animation-delay:.1s}
-  .kpi-card:nth-child(3){animation-delay:.15s} .kpi-card:nth-child(4){animation-delay:.2s}
-  .kpi-card:nth-child(5){animation-delay:.25s} .kpi-card:nth-child(6){animation-delay:.3s}
-  .kpi-card:nth-child(7){animation-delay:.35s} .kpi-card:nth-child(8){animation-delay:.4s}
-
-  .kpi-label { font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--light); margin-bottom: 12px; }
-  .kpi-value { font-family: 'Cormorant Garamond', serif; font-size: 2.4rem; font-weight: 300; color: var(--charcoal); line-height: 1; }
-  .kpi-sub { font-size: 0.62rem; color: var(--mid); margin-top: 8px; letter-spacing: 0.05em; }
-  .kpi-insight { font-size: 0.6rem; letter-spacing: 0.08em; margin-top: 10px; padding: 6px 10px; border-radius: 2px; }
-  .kpi-insight.good { background: rgba(138,158,140,0.12); color: var(--sage-dark); }
-  .kpi-insight.warn { background: rgba(196,122,90,0.1); color: var(--alert); }
-
-  .section-title {
-    font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 300;
-    font-style: italic; color: var(--sage-dark); margin-bottom: 20px;
-    padding-bottom: 10px; border-bottom: 1px solid var(--border);
-  }
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
-  .panel { background: var(--card-bg); border: 1px solid var(--border); padding: 28px; }
-  .panel-title { font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--light); margin-bottom: 20px; }
-
-  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
-  .bar-row { display: grid; grid-template-columns: 80px 1fr 70px; align-items: center; gap: 12px; font-size: 0.65rem; }
-  .bar-label { color: var(--mid); text-align: right; }
-  .bar-track { height: 8px; background: rgba(138,158,140,0.12); border-radius: 2px; overflow: hidden; }
-  .bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--sage), var(--sage-light)); transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
-  .bar-fill.clay { background: linear-gradient(90deg, var(--clay-dark), var(--clay)); }
-  .bar-fill.alert { background: linear-gradient(90deg, var(--alert), #e8a080); }
-  .bar-val { color: var(--charcoal); font-size: 0.65rem; }
-
-  .month-table { width: 100%; border-collapse: collapse; font-size: 0.68rem; }
-  .month-table th {
-    font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--light);
-    padding: 0 12px 12px; text-align: right; border-bottom: 1px solid var(--border); font-weight: 400;
-  }
-  .month-table th:first-child { text-align: left; }
-  .month-table td { padding: 14px 12px; text-align: right; border-bottom: 1px solid var(--border); color: var(--charcoal); }
-  .month-table td:first-child {
-    text-align: left; font-family: 'Cormorant Garamond', serif;
-    font-size: 1rem; font-style: italic; color: var(--sage-dark);
-  }
-  .month-table tr:last-child td { border-bottom: none; }
-
-  .insight-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 32px; }
-  .insight-box { background: var(--card-bg); border: 1px solid var(--border); padding: 24px; }
-  .insight-box.highlight { background: rgba(90,110,92,0.06); border-color: var(--sage); }
-  .insight-box.alert-box { background: rgba(196,122,90,0.06); border-color: rgba(196,122,90,0.4); }
-  .insight-icon { font-size: 1.4rem; margin-bottom: 10px; }
-  .insight-title { font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mid); margin-bottom: 8px; }
-  .insight-body { font-family: 'Cormorant Garamond', serif; font-size: 1rem; font-weight: 400; line-height: 1.5; color: var(--charcoal); }
-
-  .donut-wrap { display: flex; align-items: center; gap: 28px; }
-  .donut-legend { flex: 1; display: flex; flex-direction: column; gap: 10px; }
-  .legend-item { display: flex; align-items: center; gap: 10px; font-size: 0.65rem; }
-  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-  .legend-pct { margin-left: auto; font-size: 0.7rem; color: var(--charcoal); }
-
-  .metric-btn {
-    font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em;
-    text-transform: uppercase; padding: 8px 18px; border: 1px solid var(--border);
-    background: var(--card-bg); cursor: pointer; color: var(--mid); transition: all 0.2s;
-  }
-  .metric-btn:hover { color: var(--sage-dark); border-color: var(--sage); }
-  .metric-btn.active-metric { background: var(--sage-dark); color: var(--cream); border-color: var(--sage-dark); }
-
-  #trendCanvas { width: 100%; cursor: crosshair; }
-  .tooltip {
-    position: fixed; background: var(--charcoal); color: var(--cream);
-    padding: 10px 14px; font-size: 0.65rem; pointer-events: none;
-    display: none; z-index: 100; line-height: 1.8; letter-spacing: 0.05em;
-  }
-
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-
-  .cap-month { display: flex; flex-direction: column; gap: 8px; }
-  .cap-month-label { font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--light); }
-  .cap-month-val { font-family: 'Cormorant Garamond', serif; font-size: 2rem; color: var(--charcoal); }
-  .cap-month-sub { font-size: 0.62rem; color: var(--mid); margin-top: 2px; }
-  .cap-bar { height: 6px; background: rgba(138,158,140,0.15); margin-top: 10px; border-radius: 2px; }
-  .cap-bar-fill { height: 100%; background: var(--sage); border-radius: 2px; transition: width 1s ease; }
+:root{--sage:#8a9e8c;--sage-light:#b8c9ba;--sage-dark:#5a6e5c;--cream:#f5f0e8;--clay:#c4a882;--clay-dark:#9e7f5a;--charcoal:#2c2c2c;--mid:#666;--light:#999;--border:rgba(138,158,140,0.25);--card-bg:rgba(255,252,246,0.9);--alert:#c47a5a}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Mono',monospace;background:var(--cream);color:var(--charcoal);min-height:100vh;background-image:radial-gradient(ellipse at 20% 10%,rgba(184,201,186,0.3) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(196,168,130,0.2) 0%,transparent 50%)}
+#loading{position:fixed;inset:0;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;gap:20px;transition:opacity 0.4s}
+#loading h2{font-family:'Cormorant Garamond',serif;font-weight:300;font-style:italic;font-size:1.6rem;color:var(--sage-dark)}
+#loading p{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:var(--light)}
+.spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--sage);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#error-msg{display:none;position:fixed;inset:0;background:var(--cream);align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:1000}
+#error-msg h2{font-family:'Cormorant Garamond',serif;font-weight:300;color:var(--alert);font-size:1.4rem}
+#error-msg p{font-size:.68rem;color:var(--mid);max-width:400px;text-align:center;line-height:1.8}
+#error-msg button{font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;padding:10px 24px;border:1px solid var(--sage);background:none;cursor:pointer;color:var(--sage-dark)}
+#app{display:none}
+header{padding:28px 48px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-end}
+.logo-area h1{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;letter-spacing:.04em;color:var(--charcoal);line-height:1}
+.logo-area h1 em{font-style:italic;color:var(--sage-dark)}
+.header-meta{text-align:right;font-size:.68rem;color:var(--light);letter-spacing:.1em;text-transform:uppercase;line-height:1.8}
+.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--sage);margin-right:6px;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.filter-bar{padding:0 48px;background:rgba(255,252,246,0.8);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-height:52px}
+.filter-btn{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;padding:8px 14px;border:1px solid transparent;background:none;cursor:pointer;color:var(--light);transition:all .2s}
+.filter-btn:hover{color:var(--sage-dark)}
+.filter-btn.active{color:var(--sage-dark);border-color:var(--sage);background:rgba(138,158,140,0.08)}
+.filter-divider{width:1px;height:20px;background:var(--border);margin:0 6px;flex-shrink:0}
+.date-inputs{display:flex;align-items:center;gap:8px;padding:6px 0}
+.date-inputs input[type=date]{font-family:'DM Mono',monospace;font-size:.62rem;padding:5px 8px;border:1px solid var(--border);background:var(--card-bg);color:var(--charcoal)}
+.date-inputs input[type=date]:focus{outline:none;border-color:var(--sage)}
+.date-inputs span{font-size:.6rem;color:var(--light)}
+.apply-btn{font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;border:1px solid var(--sage-dark);background:var(--sage-dark);color:var(--cream);cursor:pointer}
+.filter-select{font-family:'DM Mono',monospace;font-size:.62rem;padding:5px 8px;border:1px solid var(--border);background:var(--card-bg);color:var(--charcoal);cursor:pointer}
+.filter-select:focus{outline:none;border-color:var(--sage)}
+#range-label{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:.95rem;color:var(--sage-dark);padding:8px 0 8px 14px;border-left:1px solid var(--border);margin-left:6px;white-space:nowrap}
+nav{padding:0 48px;border-bottom:1px solid var(--border);display:flex}
+nav button{font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;background:none;border:none;padding:14px 22px;cursor:pointer;color:var(--light);border-bottom:2px solid transparent;transition:all .2s}
+nav button:hover{color:var(--sage-dark)}
+nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
+.view{display:none;padding:32px 48px 60px}
+.view.active{display:block}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.kpi-card{background:var(--card-bg);border:1px solid var(--border);padding:22px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;animation:fadeUp .5s ease both}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(90,110,92,.12)}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--sage),var(--clay));opacity:0;transition:opacity .2s}
+.kpi-card:hover::before{opacity:1}
+.kpi-card.alert::before{opacity:1;background:linear-gradient(90deg,var(--alert),#e8a080)}
+.kpi-card.alert{border-color:rgba(196,122,90,0.3)}
+.kpi-card:nth-child(1){animation-delay:.05s}.kpi-card:nth-child(2){animation-delay:.1s}.kpi-card:nth-child(3){animation-delay:.15s}.kpi-card:nth-child(4){animation-delay:.2s}.kpi-card:nth-child(5){animation-delay:.25s}.kpi-card:nth-child(6){animation-delay:.3s}.kpi-card:nth-child(7){animation-delay:.35s}.kpi-card:nth-child(8){animation-delay:.4s}
+.kpi-label{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--light);margin-bottom:10px}
+.kpi-value{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;color:var(--charcoal);line-height:1}
+.kpi-sub{font-size:.62rem;color:var(--mid);margin-top:8px}
+.kpi-insight{font-size:.6rem;letter-spacing:.08em;margin-top:10px;padding:5px 10px;border-radius:2px}
+.kpi-insight.good{background:rgba(138,158,140,0.12);color:var(--sage-dark)}
+.kpi-insight.warn{background:rgba(196,122,90,0.1);color:var(--alert)}
+.section-title{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:300;font-style:italic;color:var(--sage-dark);margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px}
+.panel{background:var(--card-bg);border:1px solid var(--border);padding:24px}
+.panel-title{font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:var(--light);margin-bottom:18px}
+.bar-chart{display:flex;flex-direction:column;gap:9px}
+.bar-row{display:grid;grid-template-columns:80px 1fr 70px;align-items:center;gap:10px;font-size:.65rem}
+.bar-label{color:var(--mid);text-align:right}
+.bar-track{height:8px;background:rgba(138,158,140,0.12);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--sage),var(--sage-light));transition:width .8s cubic-bezier(.4,0,.2,1)}
+.bar-fill.clay{background:linear-gradient(90deg,var(--clay-dark),var(--clay))}
+.bar-fill.alert{background:linear-gradient(90deg,var(--alert),#e8a080)}
+.bar-val{color:var(--charcoal);font-size:.65rem}
+.month-table{width:100%;border-collapse:collapse;font-size:.67rem}
+.month-table th{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--light);padding:0 10px 10px;text-align:right;border-bottom:1px solid var(--border);font-weight:400}
+.month-table th:first-child{text-align:left}
+.month-table td{padding:12px 10px;text-align:right;border-bottom:1px solid var(--border);color:var(--charcoal)}
+.month-table td:first-child{text-align:left;font-family:'Cormorant Garamond',serif;font-size:.95rem;font-style:italic;color:var(--sage-dark)}
+.month-table tr:last-child td{border-bottom:none}
+.insight-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:28px}
+.insight-box{background:var(--card-bg);border:1px solid var(--border);padding:22px}
+.insight-box.highlight{background:rgba(90,110,92,0.06);border-color:var(--sage)}
+.insight-box.alert-box{background:rgba(196,122,90,0.06);border-color:rgba(196,122,90,0.4)}
+.insight-icon{font-size:1.3rem;margin-bottom:8px}
+.insight-title{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);margin-bottom:8px}
+.insight-body{font-family:'Cormorant Garamond',serif;font-size:.95rem;line-height:1.5;color:var(--charcoal)}
+.donut-wrap{display:flex;align-items:center;gap:24px}
+.donut-legend{flex:1;display:flex;flex-direction:column;gap:9px}
+.legend-item{display:flex;align-items:center;gap:10px;font-size:.65rem}
+.legend-swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.legend-pct{margin-left:auto;font-size:.7rem;color:var(--charcoal)}
+.metric-btn{font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;padding:7px 16px;border:1px solid var(--border);background:var(--card-bg);cursor:pointer;color:var(--mid);transition:all .2s}
+.metric-btn:hover{color:var(--sage-dark);border-color:var(--sage)}
+.metric-btn.active-metric{background:var(--sage-dark);color:var(--cream);border-color:var(--sage-dark)}
+#trendCanvas{width:100%;cursor:crosshair}
+.tooltip{position:fixed;background:var(--charcoal);color:var(--cream);padding:10px 14px;font-size:.65rem;pointer-events:none;display:none;z-index:100;line-height:1.8}
+.cap-bar{height:6px;background:rgba(138,158,140,0.15);margin-top:10px;border-radius:2px}
+.cap-bar-fill{height:100%;background:var(--sage);border-radius:2px}
+.no-data{font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--light);font-size:1.1rem;padding:40px 0;text-align:center}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
-
-<div id="loading">
-  <div class="spinner"></div>
-  <h2>Loading your dashboard…</h2>
-  <p>Fetching live data from Google Sheets</p>
-</div>
-
-<div id="error-msg">
-  <h2>Couldn't load data</h2>
-  <p>There was a problem fetching your Google Sheet. Make sure it's published to the web and the link is correct.</p>
-  <button onclick="loadData()">Try again</button>
-</div>
-
+<div id="loading"><div class="spinner"></div><h2>Loading your dashboard&hellip;</h2><p>Fetching live data from Google Sheets</p></div>
+<div id="error-msg"><h2>Couldn't load data</h2><p>There was a problem fetching your Google Sheet. Make sure it's published to the web.</p><button onclick="loadData()">Try again</button></div>
 <div class="tooltip" id="tooltip"></div>
-
 <div id="app">
-  <header>
-    <div class="logo-area">
-      <h1>Spa <em>Analytics</em></h1>
-      <p>Year-to-Date Performance · <span id="hdr-year">2026</span></p>
-    </div>
-    <div class="header-meta">
-      <div id="hdr-range">—</div>
-      <div id="hdr-days">— days tracked</div>
-      <div style="margin-top:4px"><span class="live-dot"></span><span id="hdr-updated">—</span></div>
-    </div>
-  </header>
-
-  <nav>
-    <button class="active" onclick="showView('overview',this)">Overview</button>
-    <button onclick="showView('revenue',this)">Revenue Mix</button>
-    <button onclick="showView('capacity',this)">Capacity</button>
-    <button onclick="showView('clients',this)">Clients</button>
-    <button onclick="showView('trends',this)">Daily Trends</button>
-  </nav>
-
-  <!-- OVERVIEW -->
-  <div class="view active" id="view-overview">
-    <div class="kpi-grid" id="kpi-grid"></div>
-    <div class="section-title">Monthly at a Glance</div>
-    <div class="panel" style="margin-bottom:32px">
-      <table class="month-table">
-        <thead>
-          <tr>
-            <th>Month</th><th>Net Inflow</th><th>Service Sales</th>
-            <th>Appointments</th><th>New Clients</th><th>Avg Sale</th>
-            <th>True Cap%</th><th>Tips</th>
-          </tr>
-        </thead>
-        <tbody id="monthly-tbody"></tbody>
-      </table>
-    </div>
-    <div class="insight-row">
-      <div class="insight-box highlight">
-        <div class="insight-icon">✦</div>
-        <div class="insight-title">Biggest Strength</div>
-        <div class="insight-body" id="insight-strength">—</div>
-      </div>
-      <div class="insight-box alert-box">
-        <div class="insight-icon">△</div>
-        <div class="insight-title">Biggest Opportunity</div>
-        <div class="insight-body" id="insight-opportunity">—</div>
-      </div>
-      <div class="insight-box">
-        <div class="insight-icon">◎</div>
-        <div class="insight-title">Worth Watching</div>
-        <div class="insight-body" id="insight-watch">—</div>
-      </div>
-    </div>
+<header>
+  <div class="logo-area"><h1>Spa <em>Analytics</em></h1></div>
+  <div class="header-meta"><div><span class="live-dot"></span><span id="hdr-updated">-</span></div><div id="hdr-days">-</div></div>
+</header>
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="setPreset('ytd',this)">YTD</button>
+  <button class="filter-btn" onclick="setPreset('q1',this)">Q1</button>
+  <button class="filter-btn" onclick="setPreset('q2',this)">Q2</button>
+  <button class="filter-btn" onclick="setPreset('q3',this)">Q3</button>
+  <button class="filter-btn" onclick="setPreset('q4',this)">Q4</button>
+  <div class="filter-divider"></div>
+  <select class="filter-select" id="month-select" onchange="setMonth(this.value)"><option value="">Month...</option></select>
+  <select class="filter-select" id="week-select" onchange="setWeek(this.value)"><option value="">Week...</option></select>
+  <div class="filter-divider"></div>
+  <div class="date-inputs">
+    <input type="date" id="date-from">
+    <span>to</span>
+    <input type="date" id="date-to">
+    <button class="apply-btn" onclick="applyCustomRange()">Apply</button>
   </div>
-
-  <!-- REVENUE -->
-  <div class="view" id="view-revenue">
-    <div class="section-title">Where Your Revenue Comes From</div>
-    <div class="two-col">
-      <div class="panel">
-        <div class="panel-title">Revenue Breakdown · YTD</div>
-        <div class="donut-wrap">
-          <canvas id="donutCanvas" width="160" height="160"></canvas>
-          <div class="donut-legend" id="donut-legend"></div>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-title">Avg Daily Inflow by Day of Week</div>
-        <div class="bar-chart" id="dow-bars"></div>
-      </div>
-    </div>
-    <div class="two-col">
-      <div class="panel">
-        <div class="panel-title">Average Sale by Day of Week</div>
-        <div class="bar-chart" id="dow-sale-bars"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-title">Monthly Net Inflow</div>
-        <div class="bar-chart" id="monthly-bars"></div>
-      </div>
-    </div>
-    <div class="insight-row" style="grid-template-columns:1fr 1fr">
-      <div class="insight-box highlight">
-        <div class="insight-title">Best Day</div>
-        <div class="insight-body" id="best-day-insight">—</div>
-      </div>
-      <div class="insight-box alert-box">
-        <div class="insight-title">Weakest Day</div>
-        <div class="insight-body" id="weak-day-insight">—</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- CAPACITY -->
-  <div class="view" id="view-capacity">
-    <div class="section-title">Understanding Your Capacity Gap</div>
-    <div class="two-col">
-      <div class="panel">
-        <div class="panel-title">The Two Capacity Numbers Explained</div>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1rem;line-height:1.8;color:var(--charcoal);margin-bottom:20px">
-          <strong>Staffed Capacity (<span id="cap-staffed-pct">—</span>)</strong> — of the hours you have staff scheduled, this share are booked. This is your scheduling efficiency.<br><br>
-          <strong>True Capacity (<span id="cap-true-pct">—</span>)</strong> — of ALL possible treatment hours, this share are filled. This is your real utilization.
-        </div>
-        <div style="background:rgba(196,122,90,0.08);border:1px solid rgba(196,122,90,0.2);padding:16px;font-size:0.72rem;line-height:1.7;color:var(--charcoal)" id="cap-gap-note">—</div>
-      </div>
-      <div class="panel">
-        <div class="panel-title">True Capacity % by Day of Week</div>
-        <div class="bar-chart" id="cap-dow-bars"></div>
-      </div>
-    </div>
-    <div class="panel" style="margin-bottom:24px">
-      <div class="panel-title">Monthly Capacity Trend</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:32px;margin-top:16px" id="cap-monthly-grid"></div>
-      <div style="margin-top:20px;font-size:0.68rem;color:var(--mid);border-top:1px solid var(--border);padding-top:16px" id="cap-trend-note">—</div>
-    </div>
-    <div class="insight-row">
-      <div class="insight-box" id="cap-upside-box">
-        <div class="insight-title">Revenue Upside</div>
-        <div class="insight-body" id="cap-upside">—</div>
-      </div>
-      <div class="insight-box alert-box">
-        <div class="insight-title">Day to Investigate</div>
-        <div class="insight-body" id="cap-low-day">—</div>
-      </div>
-      <div class="insight-box highlight">
-        <div class="insight-title">Prebook as a Lever</div>
-        <div class="insight-body">Your all-client prebook rate is <span id="cap-prebook">—</span>. Each client who prebooks at checkout locks in future capacity — every 10% increase meaningfully smooths your schedule.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- CLIENTS -->
-  <div class="view" id="view-clients">
-    <div class="section-title">Client Flow &amp; Retention Signals</div>
-    <div class="kpi-grid" id="client-kpi-grid" style="grid-template-columns:repeat(4,1fr)"></div>
-    <div class="two-col">
-      <div class="panel">
-        <div class="panel-title">New Clients by Month</div>
-        <div class="bar-chart" id="new-client-bars"></div>
-        <div style="margin-top:20px;font-size:0.68rem;color:var(--mid);line-height:1.7" id="new-client-note">—</div>
-      </div>
-      <div class="panel">
-        <div class="panel-title">The Retention Math</div>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:0.95rem;line-height:1.9;color:var(--charcoal)" id="retention-math">—</div>
-        <div style="margin-top:16px;background:rgba(138,158,140,0.08);border:1px solid var(--border);padding:14px;font-size:0.68rem;color:var(--sage-dark)">
-          ✦ The best time to rebook a new client is right at checkout, while the experience is fresh.
-        </div>
-      </div>
-    </div>
-    <div class="panel">
-      <div class="panel-title">Average Appointments by Day of Week</div>
-      <div class="bar-chart" id="appts-dow-bars"></div>
-    </div>
-  </div>
-
-  <!-- TRENDS -->
-  <div class="view" id="view-trends">
-    <div class="section-title">Daily Performance Trends</div>
-    <div style="display:flex;gap:16px;margin-bottom:16px">
-      <button onclick="setMetric('net_inflow')" id="btn-inflow" class="metric-btn active-metric">Net Inflow</button>
-      <button onclick="setMetric('service_sales')" id="btn-sales" class="metric-btn">Service Sales</button>
-      <button onclick="setMetric('true_cap')" id="btn-cap" class="metric-btn">True Capacity %</button>
-      <button onclick="setMetric('appts')" id="btn-appts" class="metric-btn">Appointments</button>
-    </div>
-    <div class="panel" style="padding:28px 28px 20px">
-      <canvas id="trendCanvas" height="220"></canvas>
-    </div>
-    <div class="two-col" style="margin-top:24px">
-      <div class="panel">
-        <div class="panel-title">Top 5 Revenue Days</div>
-        <div id="top-days" style="font-size:0.68rem;color:var(--charcoal);line-height:2"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-title">5 Lowest Revenue Days</div>
-        <div id="low-days" style="font-size:0.68rem;color:var(--charcoal);line-height:2"></div>
-      </div>
-    </div>
+  <div id="range-label">Year to Date</div>
+</div>
+<nav>
+  <button class="active" onclick="showView('overview',this)">Overview</button>
+  <button onclick="showView('revenue',this)">Revenue Mix</button>
+  <button onclick="showView('capacity',this)">Capacity</button>
+  <button onclick="showView('clients',this)">Clients</button>
+  <button onclick="showView('trends',this)">Daily Trends</button>
+</nav>
+<div class="view active" id="view-overview">
+  <div class="kpi-grid" id="kpi-grid"></div>
+  <div class="section-title">Period Breakdown</div>
+  <div class="panel" style="margin-bottom:28px"><table class="month-table"><thead><tr>
+    <th>Period</th><th>Net Inflow</th><th>Service Sales</th><th>Appointments</th><th>New Clients</th><th>Avg Sale</th><th>True Cap%</th><th>Tips</th>
+  </tr></thead><tbody id="monthly-tbody"></tbody></table></div>
+  <div class="insight-row">
+    <div class="insight-box highlight"><div class="insight-icon">&#10022;</div><div class="insight-title">Biggest Strength</div><div class="insight-body" id="insight-strength">-</div></div>
+    <div class="insight-box alert-box"><div class="insight-icon">&#9651;</div><div class="insight-title">Biggest Opportunity</div><div class="insight-body" id="insight-opportunity">-</div></div>
+    <div class="insight-box"><div class="insight-icon">&#9678;</div><div class="insight-title">Worth Watching</div><div class="insight-body" id="insight-watch">-</div></div>
   </div>
 </div>
-
+<div class="view" id="view-revenue">
+  <div class="section-title">Where Your Revenue Comes From</div>
+  <div class="two-col">
+    <div class="panel"><div class="panel-title">Revenue Breakdown</div><div class="donut-wrap"><canvas id="donutCanvas" width="160" height="160"></canvas><div class="donut-legend" id="donut-legend"></div></div></div>
+    <div class="panel"><div class="panel-title">Avg Daily Inflow by Day of Week</div><div class="bar-chart" id="dow-bars"></div></div>
+  </div>
+  <div class="two-col">
+    <div class="panel"><div class="panel-title">Average Sale by Day of Week</div><div class="bar-chart" id="dow-sale-bars"></div></div>
+    <div class="panel"><div class="panel-title">Inflow by Period</div><div class="bar-chart" id="monthly-bars"></div></div>
+  </div>
+  <div class="insight-row" style="grid-template-columns:1fr 1fr">
+    <div class="insight-box highlight"><div class="insight-title">Best Day</div><div class="insight-body" id="best-day-insight">-</div></div>
+    <div class="insight-box alert-box"><div class="insight-title">Weakest Day</div><div class="insight-body" id="weak-day-insight">-</div></div>
+  </div>
+</div>
+<div class="view" id="view-capacity">
+  <div class="section-title">Understanding Your Capacity Gap</div>
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-title">The Two Capacity Numbers</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:1rem;line-height:1.8;margin-bottom:20px">
+        <strong>Staffed Capacity (<span id="cap-staffed-pct">-</span>)</strong> - of the hours you have staff scheduled, this share are booked.<br><br>
+        <strong>True Capacity (<span id="cap-true-pct">-</span>)</strong> - of ALL possible treatment hours, this share are filled.
+      </div>
+      <div style="background:rgba(196,122,90,0.08);border:1px solid rgba(196,122,90,0.2);padding:16px;font-size:.72rem;line-height:1.7" id="cap-gap-note">-</div>
+    </div>
+    <div class="panel"><div class="panel-title">True Capacity % by Day of Week</div><div class="bar-chart" id="cap-dow-bars"></div></div>
+  </div>
+  <div class="panel" style="margin-bottom:24px">
+    <div class="panel-title">Capacity by Period</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:28px;margin-top:16px" id="cap-monthly-grid"></div>
+  </div>
+  <div class="insight-row">
+    <div class="insight-box"><div class="insight-title">Revenue Upside</div><div class="insight-body" id="cap-upside">-</div></div>
+    <div class="insight-box alert-box"><div class="insight-title">Day to Investigate</div><div class="insight-body" id="cap-low-day">-</div></div>
+    <div class="insight-box highlight"><div class="insight-title">Prebook as a Lever</div><div class="insight-body">All-client prebook: <span id="cap-prebook">-</span>. Each prebook at checkout locks in future capacity.</div></div>
+  </div>
+</div>
+<div class="view" id="view-clients">
+  <div class="section-title">Client Flow &amp; Retention Signals</div>
+  <div class="kpi-grid" id="client-kpi-grid" style="grid-template-columns:repeat(4,1fr)"></div>
+  <div class="two-col">
+    <div class="panel"><div class="panel-title">New Clients by Period</div><div class="bar-chart" id="new-client-bars"></div></div>
+    <div class="panel"><div class="panel-title">The Retention Math</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:.95rem;line-height:1.9" id="retention-math">-</div>
+      <div style="margin-top:16px;background:rgba(138,158,140,0.08);border:1px solid var(--border);padding:14px;font-size:.68rem;color:var(--sage-dark)">The best time to rebook a new client is right at checkout, while the experience is fresh.</div>
+    </div>
+  </div>
+  <div class="panel"><div class="panel-title">Average Appointments by Day of Week</div><div class="bar-chart" id="appts-dow-bars"></div></div>
+</div>
+<div class="view" id="view-trends">
+  <div class="section-title">Daily Performance Trends</div>
+  <div style="display:flex;gap:12px;margin-bottom:16px">
+    <button onclick="setMetric('net_inflow')" id="btn-inflow" class="metric-btn active-metric">Net Inflow</button>
+    <button onclick="setMetric('service_sales')" id="btn-sales" class="metric-btn">Service Sales</button>
+    <button onclick="setMetric('true_cap')" id="btn-cap" class="metric-btn">True Capacity %</button>
+    <button onclick="setMetric('appts')" id="btn-appts" class="metric-btn">Appointments</button>
+  </div>
+  <div class="panel" style="padding:24px 24px 16px"><canvas id="trendCanvas" height="220"></canvas></div>
+  <div class="two-col" style="margin-top:20px">
+    <div class="panel"><div class="panel-title">Top 5 Revenue Days</div><div id="top-days" style="font-size:.68rem;line-height:2"></div></div>
+    <div class="panel"><div class="panel-title">5 Lowest Revenue Days</div><div id="low-days" style="font-size:.68rem;line-height:2"></div></div>
+  </div>
+</div>
+</div>
 <script>
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQfueNweTFlHeobBmAvpzpae6H1rtfBjY0rTZf_8ozQHUobpY6Wsl0JfsBI4qS8CDfzpr2m3KCrjq7c/pub?output=csv&gid=1038672996';
+var SHEET_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQfueNweTFlHeobBmAvpzpae6H1rtfBjY0rTZf_8ozQHUobpY6Wsl0JfsBI4qS8CDfzpr2m3KCrjq7c/pub?output=csv&gid=1038672996';
+var MN={'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June','07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
+var DOW=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+var allRows=[],filtered=[],currentMetric='net_inflow';
+function el(id){return document.getElementById(id);}
+function fmtK(v){return '$'+(Math.abs(v)>=1000?(v/1000).toFixed(1)+'k':Math.round(v).toLocaleString());}
+function fmtP(v){return(v*100).toFixed(1)+'%';}
+function num(v){var n=parseFloat(String(v||'').replace(/[,$%]/g,''));return isNaN(n)?0:n;}
+function cap(v){var n=num(v);return n>1?n/100:n;}
 
-// ── CSV PARSER ──────────────────────────────────────────────────────────────
-function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-  return lines.slice(1).map(line => {
-    const vals = [];
-    let cur = '', inQ = false;
-    for (let c of line) {
-      if (c === '"') { inQ = !inQ; }
-      else if (c === ',' && !inQ) { vals.push(cur.trim()); cur = ''; }
-      else { cur += c; }
-    }
+function parseCSV(text){
+  var lines=text.trim().split('\n');
+  var hdrs=lines[0].split(',').map(function(h){return h.trim().replace(/^"|"$/g,'');});
+  return lines.slice(1).map(function(line){
+    var vals=[],cur='',inQ=false;
+    for(var i=0;i<line.length;i++){var c=line[i];if(c==='"'){inQ=!inQ;}else if(c===','&&!inQ){vals.push(cur.trim());cur='';}else{cur+=c;}}
     vals.push(cur.trim());
-    const row = {};
-    headers.forEach((h, i) => row[h] = vals[i] !== undefined ? vals[i].replace(/^"|"$/g, '') : '');
-    return row;
+    var row={};hdrs.forEach(function(h,i){row[h]=(vals[i]||'').replace(/^"|"$/g,'');});return row;
   });
 }
 
-// ── COLUMN NAME RESOLVER ────────────────────────────────────────────────────
-// Maps logical names to actual CSV column headers (handles variations)
-function resolveCol(headers, candidates) {
-  for (const c of candidates) {
-    const found = headers.find(h => h.toLowerCase().includes(c.toLowerCase()));
-    if (found) return found;
-  }
+function rc(hdrs,cands){
+  for(var i=0;i<cands.length;i++){for(var j=0;j<hdrs.length;j++){if(hdrs[j]===cands[i])return hdrs[j];}}
+  for(var i=0;i<cands.length;i++){for(var j=0;j<hdrs.length;j++){if(hdrs[j].toLowerCase().indexOf(cands[i].toLowerCase())>=0)return hdrs[j];}}
   return null;
 }
 
-// ── HELPERS ─────────────────────────────────────────────────────────────────
-const $ = id => document.getElementById(id);
-const fmt$ = v => '$' + Math.round(v).toLocaleString();
-const fmtK = v => '$' + (Math.abs(v) >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v));
-const fmtPct = v => (v * 100).toFixed(1) + '%';
-const num = v => { const n = parseFloat(String(v).replace(/[,$%]/g,'')); return isNaN(n) ? 0 : n; };
+function loadData(){
+  el('loading').style.display='flex';el('loading').style.opacity='1';
+  el('error-msg').style.display='none';el('app').style.display='none';
+  fetch(SHEET_URL+'&t='+Date.now()).then(function(r){
+    if(!r.ok)throw new Error('HTTP '+r.status);return r.text();
+  }).then(function(text){
+    var rows=parseCSV(text);
+    if(!rows.length)throw new Error('empty');
+    allRows=parseRows(rows);
+    populateSelects();
+    applyPreset('ytd');
+    el('hdr-updated').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    el('hdr-days').textContent=allRows.length+' days loaded';
+    el('loading').style.opacity='0';
+    setTimeout(function(){el('loading').style.display='none';el('app').style.display='block';},400);
+  }).catch(function(e){
+    console.error(e);el('loading').style.display='none';el('error-msg').style.display='flex';
+  });
+}
 
-const DOW_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-const MONTH_NAMES = {
-  '01':'January','02':'February','03':'March','04':'April','05':'May','06':'June',
-  '07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'
-};
+function parseRows(rows){
+  var h=Object.keys(rows[0]);
+  var C={
+    date:rc(h,["Today's Date","Date"]),dow:rc(h,["Day of the Week","Day of Week"]),
+    inflow:rc(h,["Net Inflow"]),outflow:rc(h,["Net Outflow"]),cashChange:rc(h,["Cash Position Change"]),
+    serviceSales:rc(h,["Service Sales $ (Sales Summary Report)","Service Sales $","Service Sales"]),
+    avgSale:rc(h,["Average Sale"]),
+    productSales:rc(h,["Product Sales $ (Sales Summary Report)","Product Sales $","Product Sales"]),
+    gcSales:rc(h,["Gift Card Sales $ (Gift Card Sales Report)","Gift Card Sales $","Gift Card Sales"]),
+    pkgSales:rc(h,["Package Sales $ (Package Sales Report)","Package Sales $","Package Sales"]),
+    memSales:rc(h,["Membership Sales $ (Membership Payment Report)","Membership Sales $","Membership Sales"]),
+    tips:rc(h,["Staff Tips Total (Cash Flow Report)","Staff Tips Total","Staff Tips"]),
+    staffedCap:rc(h,["Staffed Capacity % Booked","Staffed Capacity"]),
+    trueCap:rc(h,["True Capacity % Booked","True Capacity"]),
+    appts:rc(h,["Appointments All Clients Total #","Appointments All Clients Total"]),
+    newClients:rc(h,["Appointments New Clients Total #","Appointments New Clients Total"]),
+    allPrebook:rc(h,["All Client Prebooking"]),newPrebook:rc(h,["New Client Prebooking"])
+  };
+  return rows.map(function(r){
+    var d=new Date(r[C.date]);if(isNaN(d.getTime()))return null;
+    var mo=String(d.getMonth()+1).padStart(2,'0');
+    return{date:d,dateStr:r[C.date],dow:r[C.dow]||'',month:d.getFullYear()+'-'+mo,
+      inflow:num(r[C.inflow]),outflow:num(r[C.outflow]),cashChange:num(r[C.cashChange]),
+      serviceSales:num(r[C.serviceSales]),productSales:num(r[C.productSales]),
+      avgSale:num(r[C.avgSale]),gcSales:num(r[C.gcSales]),pkgSales:num(r[C.pkgSales]),
+      memSales:num(r[C.memSales]),tips:num(r[C.tips]),
+      staffedCap:cap(r[C.staffedCap]),trueCap:cap(r[C.trueCap]),
+      appts:num(r[C.appts]),newClients:num(r[C.newClients]),
+      allPrebook:cap(r[C.allPrebook]),newPrebook:cap(r[C.newPrebook])};
+  }).filter(Boolean).sort(function(a,b){return a.date-b.date;});
+}
 
-// ── MAIN DATA LOAD ───────────────────────────────────────────────────────────
-let D = {}; // processed data store
-let currentMetric = 'net_inflow';
+function populateSelects(){
+  var months=[],seen={};
+  allRows.forEach(function(r){if(!seen[r.month]){seen[r.month]=1;months.push(r.month);}});
+  months.sort();
+  var ms=el('month-select');ms.innerHTML='<option value="">Month...</option>';
+  months.forEach(function(m){var p=m.split('-');ms.innerHTML+='<option value="'+m+'">'+MN[p[1]]+' '+p[0]+'</option>';});
+  var weeksSeen={},weeksArr=[];
+  allRows.forEach(function(r){
+    var d=new Date(r.date),day=d.getDay(),mon=new Date(d);
+    mon.setDate(d.getDate()-(day===0?6:day-1));
+    var w=mon.toISOString().slice(0,10);
+    if(!weeksSeen[w]){weeksSeen[w]=1;weeksArr.push(w);}
+  });
+  weeksArr.sort();
+  var ws=el('week-select');ws.innerHTML='<option value="">Week...</option>';
+  weeksArr.forEach(function(w){ws.innerHTML+='<option value="'+w+'">Wk of '+w+'</option>';});
+  var dates=allRows.map(function(r){return r.date;});
+  el('date-from').value=new Date(Math.min.apply(null,dates)).toISOString().slice(0,10);
+  el('date-to').value=new Date(Math.max.apply(null,dates)).toISOString().slice(0,10);
+}
 
-async function loadData() {
-  $('loading').style.display = 'flex';
-  $('error-msg').style.display = 'none';
-  $('app').style.display = 'none';
+function applyPreset(preset){
+  var now=new Date(),y=now.getFullYear(),f,t,lbl;
+  if(preset==='ytd'){f=new Date(y,0,1);t=new Date();lbl='Year to Date';}
+  else if(preset==='q1'){f=new Date(y,0,1);t=new Date(y,2,31);lbl='Q1 - Jan to Mar';}
+  else if(preset==='q2'){f=new Date(y,3,1);t=new Date(y,5,30);lbl='Q2 - Apr to Jun';}
+  else if(preset==='q3'){f=new Date(y,6,1);t=new Date(y,8,30);lbl='Q3 - Jul to Sep';}
+  else if(preset==='q4'){f=new Date(y,9,1);t=new Date(y,11,31);lbl='Q4 - Oct to Dec';}
+  t.setHours(23,59,59);
+  filtered=allRows.filter(function(r){return r.date>=f&&r.date<=t;});
+  el('range-label').textContent=lbl;
+  renderAll();
+}
 
-  try {
-    const resp = await fetch(SHEET_URL + '&t=' + Date.now());
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const text = await resp.text();
-    const rows = parseCSV(text);
-    if (!rows.length) throw new Error('No data');
+function setPreset(preset,btn){
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  el('month-select').value='';el('week-select').value='';
+  applyPreset(preset);
+}
 
-    processData(rows);
-    renderAll();
+function setMonth(val){
+  if(!val)return;
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+  el('week-select').value='';
+  var p=val.split('-');
+  filtered=allRows.filter(function(r){return r.month===val;});
+  el('range-label').textContent=MN[p[1]]+' '+p[0];
+  renderAll();
+}
 
-    $('loading').style.opacity = '0';
-    setTimeout(() => { $('loading').style.display = 'none'; $('app').style.display = 'block'; }, 400);
-  } catch(e) {
-    console.error(e);
-    $('loading').style.display = 'none';
-    $('error-msg').style.display = 'flex';
+function setWeek(val){
+  if(!val)return;
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+  el('month-select').value='';
+  var start=new Date(val);start.setHours(0,0,0);
+  var end=new Date(val);end.setDate(end.getDate()+6);end.setHours(23,59,59);
+  filtered=allRows.filter(function(r){return r.date>=start&&r.date<=end;});
+  el('range-label').textContent='Week of '+val;
+  renderAll();
+}
+
+function applyCustomRange(){
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+  el('month-select').value='';el('week-select').value='';
+  var from=el('date-from').value,to=el('date-to').value;
+  if(!from||!to){alert('Please select both a start and end date');return;}
+  var f=new Date(from);f.setHours(0,0,0);
+  var t=new Date(to);t.setHours(23,59,59);
+  filtered=allRows.filter(function(r){return r.date>=f&&r.date<=t;});
+  el('range-label').textContent=from+' to '+to;
+  renderAll();
+}
+
+function compute(rows){
+  if(!rows.length)return null;
+  function s(k){return rows.reduce(function(a,r){return a+r[k];},0);}
+  function av(k){var v=rows.filter(function(r){return r[k]>0;});return v.length?v.reduce(function(a,r){return a+r[k];},0)/v.length:0;}
+  var mmap={};
+  rows.forEach(function(r){if(!mmap[r.month])mmap[r.month]=[];mmap[r.month].push(r);});
+  var mkeys=Object.keys(mmap).sort();
+  var monthly=mkeys.map(function(key){
+    var mr=mmap[key];
+    function ms(k){return mr.reduce(function(a,r){return a+r[k];},0);}
+    function ma(k){var v=mr.filter(function(r){return r[k]>0;});return v.length?v.reduce(function(a,r){return a+r[k];},0)/v.length:0;}
+    return{key:key,label:MN[key.split('-')[1]]||key,inflow:ms('inflow'),serviceSales:ms('serviceSales'),
+      productSales:ms('productSales'),appts:ms('appts'),newClients:ms('newClients'),
+      avgSale:ma('avgSale'),trueCap:ma('trueCap'),staffedCap:ma('staffedCap'),
+      tips:ms('tips'),memSales:ms('memSales'),pkgSales:ms('pkgSales'),gcSales:ms('gcSales')};
+  });
+  var dmap={};DOW.forEach(function(d){dmap[d]=[];});
+  rows.forEach(function(r){if(dmap[r.dow])dmap[r.dow].push(r);});
+  var dow=DOW.map(function(day){
+    var dr=dmap[day];
+    if(!dr.length)return{day:day,avgInflow:0,avgAppts:0,avgSale:0,avgTrueCap:0};
+    function da(k){return dr.reduce(function(s,r){return s+r[k];},0)/dr.length;}
+    return{day:day,avgInflow:da('inflow'),avgAppts:da('appts'),avgSale:da('avgSale'),avgTrueCap:da('trueCap')};
+  });
+  return{inflow:s('inflow'),outflow:s('outflow'),cashChange:s('cashChange'),
+    serviceSales:s('serviceSales'),productSales:s('productSales'),gcSales:s('gcSales'),
+    pkgSales:s('pkgSales'),memSales:s('memSales'),tips:s('tips'),
+    appts:s('appts'),newClients:s('newClients'),
+    avgSale:av('avgSale'),trueCap:av('trueCap'),staffedCap:av('staffedCap'),
+    allPrebook:av('allPrebook'),newPrebook:av('newPrebook'),
+    days:rows.length,monthly:monthly,dow:dow,
+    daily:rows.map(function(r){return{date:r.dateStr,net_inflow:r.inflow,service_sales:r.serviceSales,true_cap:r.trueCap,appts:r.appts};})};
+}
+
+function renderAll(){
+  if(!filtered.length){
+    ['kpi-grid','client-kpi-grid'].forEach(function(id){if(el(id))el(id).innerHTML='<div class="no-data" style="grid-column:1/-1">No data for this period</div>';});
+    el('monthly-tbody').innerHTML='<tr><td colspan="8" class="no-data">No data for this period</td></tr>';
+    return;
   }
+  var D=compute(filtered);
+  renderOverview(D);renderRevenue(D);renderCapacity(D);renderClients(D);
+  if(el('view-trends').classList.contains('active'))drawTrend(D);
+  else window._D=D;
 }
 
-function processData(rows) {
-  const headers = Object.keys(rows[0]);
-
-  // Resolve column names — exact match first, then partial fallback
-  const COL = {
-    date:         resolveCol(headers, ["Today's Date", "Date", "Todays Date"]),
-    dow:          resolveCol(headers, ["Day of the Week", "Day of Week", "DayOfWeek"]),
-    inflow:       resolveCol(headers, ["Net Inflow"]),
-    outflow:      resolveCol(headers, ["Net Outflow"]),
-    cashChange:   resolveCol(headers, ["Cash Position Change"]),
-    numServices:  resolveCol(headers, ["# Services (Sales Summary Report)", "# Services"]),
-    serviceSales: resolveCol(headers, ["Service Sales $ (Sales Summary Report)", "Service Sales $", "Service Sales"]),
-    avgSale:      resolveCol(headers, ["Average Sale"]),
-    numProducts:  resolveCol(headers, ["# Product Sales (Sales Summary Report)", "# Product Sales"]),
-    productSales: resolveCol(headers, ["Product Sales $ (Sales Summary Report)", "Product Sales $", "Product Sales"]),
-    refunds:      resolveCol(headers, ["Refund $ (Refund Summary Report)", "Refund $", "Refund"]),
-    gcSales:      resolveCol(headers, ["Gift Card Sales $ (Gift Card Sales Report)", "Gift Card Sales $", "Gift Card Sales"]),
-    gcUsage:      resolveCol(headers, ["Gift Card Usage $ (Gift Card Usage Report)", "Gift Card Usage $", "Gift Card Usage"]),
-    pkgSales:     resolveCol(headers, ["Package Sales $ (Package Sales Report)", "Package Sales $", "Package Sales"]),
-    pkgUsage:     resolveCol(headers, ["Package Usage $ (Package Usage Report)", "Package Usage $", "Package Usage"]),
-    memSales:     resolveCol(headers, ["Membership Sales $ (Membership Payment Report)", "Membership Sales $", "Membership Sales"]),
-    memUsage:     resolveCol(headers, ["Membership Usage $ (Membership Usage Report)", "Membership Usage $", "Membership Usage"]),
-    tips:         resolveCol(headers, ["Staff Tips Total (Cash Flow Report)", "Staff Tips Total", "Staff Tips"]),
-    hoursAvail:   resolveCol(headers, ["Hours Avail #", "Hours Avail"]),
-    hoursBooked:  resolveCol(headers, ["Hours Booked #", "Hours Booked"]),
-    staffedCap:   resolveCol(headers, ["Staffed Capacity % Booked", "Staffed Capacity", "Staffed Cap"]),
-    trueCap:      resolveCol(headers, ["True Capacity % Booked", "True Capacity", "True Cap"]),
-    appts:        resolveCol(headers, ["Appointments All Clients Total #", "Appointments All Clients Total", "Total Appointments"]),
-    newClients:   resolveCol(headers, ["Appointments New Clients Total #", "Appointments New Clients Total", "New Clients"]),
-    allPrebook:   resolveCol(headers, ["All Client Prebooking", "All Client Prebook"]),
-    newPrebook:   resolveCol(headers, ["New Client Prebooking", "New Client Prebook"]),
-  };
-
-  // Filter to current year, skip bad rows
-  const currentYear = new Date().getFullYear();
-  const ytd = rows.filter(r => {
-    const d = new Date(r[COL.date]);
-    return !isNaN(d) && d.getFullYear() === currentYear;
-  });
-
-  if (!ytd.length) throw new Error('No YTD data');
-
-  // Parse each row
-  const parsed = ytd.map(r => ({
-    date:         r[COL.date],
-    dow:          r[COL.dow] || '',
-    inflow:       num(r[COL.inflow]),
-    outflow:      num(r[COL.outflow]),
-    cashChange:   num(r[COL.cashChange]),
-    serviceSales: num(r[COL.serviceSales]),
-    productSales: num(r[COL.productSales]),
-    avgSale:      num(r[COL.avgSale]),
-    refunds:      num(r[COL.refunds]),
-    gcSales:      num(r[COL.gcSales]),
-    pkgSales:     num(r[COL.pkgSales]),
-    memSales:     num(r[COL.memSales]),
-    tips:         num(r[COL.tips]),
-    staffedCap:   num(r[COL.staffedCap]) > 1 ? num(r[COL.staffedCap]) / 100 : num(r[COL.staffedCap]),
-    trueCap:      num(r[COL.trueCap])    > 1 ? num(r[COL.trueCap])    / 100 : num(r[COL.trueCap]),
-    appts:        num(r[COL.appts]),
-    newClients:   num(r[COL.newClients]),
-    allPrebook:   num(r[COL.allPrebook]) > 1 ? num(r[COL.allPrebook]) / 100 : num(r[COL.allPrebook]),
-    newPrebook:   num(r[COL.newPrebook]) > 1 ? num(r[COL.newPrebook]) / 100 : num(r[COL.newPrebook]),
-  }));
-
-  const sum = key => parsed.reduce((a,r) => a + r[key], 0);
-  const avg = key => { const v = parsed.filter(r => r[key] > 0); return v.length ? v.reduce((a,r) => a+r[key],0)/v.length : 0; };
-
-  // YTD totals
-  D.ytd = {
-    inflow:       sum('inflow'),
-    outflow:      sum('outflow'),
-    cashChange:   sum('cashChange'),
-    serviceSales: sum('serviceSales'),
-    productSales: sum('productSales'),
-    gcSales:      sum('gcSales'),
-    pkgSales:     sum('pkgSales'),
-    memSales:     sum('memSales'),
-    tips:         sum('tips'),
-    refunds:      sum('refunds'),
-    appts:        sum('appts'),
-    newClients:   sum('newClients'),
-    avgSale:      avg('avgSale'),
-    trueCap:      avg('trueCap'),
-    staffedCap:   avg('staffedCap'),
-    allPrebook:   avg('allPrebook'),
-    newPrebook:   avg('newPrebook'),
-    days:         parsed.length,
-  };
-
-  // Date range
-  const dates = parsed.map(r => new Date(r.date)).filter(d => !isNaN(d)).sort((a,b) => a-b);
-  D.minDate = dates[0];
-  D.maxDate = dates[dates.length-1];
-  D.year = currentYear;
-
-  // Monthly aggregation
-  const monthMap = {};
-  parsed.forEach(r => {
-    const d = new Date(r.date);
-    if (isNaN(d)) return;
-    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    if (!monthMap[key]) monthMap[key] = [];
-    monthMap[key].push(r);
-  });
-  D.monthly = Object.keys(monthMap).sort().map(key => {
-    const rows = monthMap[key];
-    const s = key => rows.reduce((a,r) => a+r[key], 0);
-    const a = key => { const v = rows.filter(r=>r[key]>0); return v.length ? v.reduce((a,r)=>a+r[key],0)/v.length : 0; };
-    return {
-      key, label: MONTH_NAMES[key.split('-')[1]] || key,
-      inflow: s('inflow'), serviceSales: s('serviceSales'),
-      productSales: s('productSales'), appts: s('appts'),
-      newClients: s('newClients'), avgSale: a('avgSale'),
-      trueCap: a('trueCap'), staffedCap: a('staffedCap'),
-      tips: s('tips'), memSales: s('memSales'), pkgSales: s('pkgSales'),
-      gcSales: s('gcSales'), refunds: s('refunds'),
-      isPartial: key === D.monthly?.[D.monthly?.length-1]?.key,
-    };
-  });
-  // mark last month as partial if it's current month
-  const now = new Date();
-  const curKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-  if (D.monthly.length) D.monthly[D.monthly.length-1].isPartial = D.monthly[D.monthly.length-1].key === curKey;
-
-  // Day of week aggregation
-  const dowMap = {};
-  DOW_ORDER.forEach(d => dowMap[d] = []);
-  parsed.forEach(r => { if (dowMap[r.dow]) dowMap[r.dow].push(r); });
-  D.dow = DOW_ORDER.map(day => {
-    const rows = dowMap[day];
-    if (!rows.length) return { day, avgInflow: 0, avgAppts: 0, avgSale: 0, avgTrueCap: 0 };
-    const a = key => rows.reduce((s,r) => s+r[key], 0) / rows.length;
-    return { day, avgInflow: a('inflow'), avgAppts: a('appts'), avgSale: a('avgSale'), avgTrueCap: a('trueCap') };
-  });
-
-  // Daily for trend chart
-  D.daily = parsed.map(r => ({
-    date: r.date, net_inflow: r.inflow,
-    service_sales: r.serviceSales, true_cap: r.trueCap, appts: r.appts
-  })).sort((a,b) => new Date(a.date) - new Date(b.date));
+function renderOverview(D){
+  var rp=(D.serviceSales>0?D.productSales/D.serviceSales*100:0).toFixed(1);
+  var tp=(D.serviceSales>0?D.tips/D.serviceSales*100:0).toFixed(1);
+  var mp=(D.serviceSales>0?(D.memSales+D.pkgSales)/D.serviceSales*100:0).toFixed(0);
+  el('kpi-grid').innerHTML=
+    '<div class="kpi-card"><div class="kpi-label">Net Inflow</div><div class="kpi-value">'+fmtK(D.inflow)+'</div><div class="kpi-sub">'+fmtK(D.outflow)+' outflow - +'+fmtK(D.cashChange)+' net</div><div class="kpi-insight good">Strong positive cash position</div></div>'+
+    '<div class="kpi-card"><div class="kpi-label">Service Revenue</div><div class="kpi-value">'+fmtK(D.serviceSales)+'</div><div class="kpi-sub">'+Math.round(D.appts).toLocaleString()+' services - '+D.days+' days</div><div class="kpi-insight good">Core engine is healthy</div></div>'+
+    '<div class="kpi-card"><div class="kpi-label">Average Sale</div><div class="kpi-value">$'+D.avgSale.toFixed(2)+'</div><div class="kpi-sub">Per service visit</div><div class="kpi-insight good">Consistent ticket value</div></div>'+
+    '<div class="kpi-card'+(parseFloat(rp)<5?' alert':'')+'"><div class="kpi-label">Retail Sales</div><div class="kpi-value">'+fmtK(D.productSales)+'</div><div class="kpi-sub">'+rp+'% of service revenue</div><div class="kpi-insight '+(parseFloat(rp)<5?'warn':'good')+'">'+(parseFloat(rp)<5?'Industry avg is 10-20%':'Solid retail performance')+'</div></div>'+
+    '<div class="kpi-card"><div class="kpi-label">Membership Revenue</div><div class="kpi-value">'+fmtK(D.memSales)+'</div><div class="kpi-sub">'+(D.serviceSales>0?(D.memSales/D.serviceSales*100).toFixed(0):0)+'% of service sales</div><div class="kpi-insight good">Recurring base</div></div>'+
+    '<div class="kpi-card"><div class="kpi-label">Package Revenue</div><div class="kpi-value">'+fmtK(D.pkgSales)+'</div><div class="kpi-sub">'+(D.serviceSales>0?(D.pkgSales/D.serviceSales*100).toFixed(0):0)+'% of service sales</div><div class="kpi-insight good">Prepaid loyalty</div></div>'+
+    '<div class="kpi-card'+(D.trueCap<.45?' alert':'')+'"><div class="kpi-label">True Capacity Booked</div><div class="kpi-value">'+fmtP(D.trueCap)+'</div><div class="kpi-sub">Staffed: '+fmtP(D.staffedCap)+'</div><div class="kpi-insight '+(D.trueCap<.45?'warn':'good')+'">'+(D.trueCap<.45?'Growth opportunity here':'Strong utilization')+'</div></div>'+
+    '<div class="kpi-card"><div class="kpi-label">Staff Tips</div><div class="kpi-value">'+fmtK(D.tips)+'</div><div class="kpi-sub">~'+tp+'% of service revenue</div><div class="kpi-insight good">Team morale signal</div></div>';
+  var tbody=D.monthly.length>1
+    ?D.monthly.map(function(m){return'<tr><td>'+m.label+'</td><td>'+fmtK(m.inflow)+'</td><td>'+fmtK(m.serviceSales)+'</td><td>'+Math.round(m.appts)+'</td><td>'+Math.round(m.newClients)+'</td><td>$'+m.avgSale.toFixed(2)+'</td><td>'+fmtP(m.trueCap)+'</td><td>'+fmtK(m.tips)+'</td></tr>';}).join('')
+    :filtered.slice(0,31).map(function(r){return'<tr><td>'+r.dateStr+' <span style="color:var(--light);font-size:.7rem">'+r.dow.slice(0,3)+'</span></td><td>'+fmtK(r.inflow)+'</td><td>'+fmtK(r.serviceSales)+'</td><td>'+Math.round(r.appts)+'</td><td>'+Math.round(r.newClients)+'</td><td>$'+r.avgSale.toFixed(2)+'</td><td>'+fmtP(r.trueCap)+'</td><td>'+fmtK(r.tips)+'</td></tr>';}).join('');
+  el('monthly-tbody').innerHTML=tbody;
+  el('insight-strength').textContent='Memberships + packages represent '+mp+'% of service revenue - '+(parseInt(mp)>55?'exceptional':'solid')+' recurring income and loyalty for this period.';
+  el('insight-opportunity').textContent='Retail is at '+rp+'% of service revenue. Industry standard is 10-20% - that\'s roughly '+fmtK(D.serviceSales*.10-D.productSales)+'-'+fmtK(D.serviceSales*.20-D.productSales)+' of additional potential.';
+  el('insight-watch').textContent='True capacity at '+fmtP(D.trueCap)+' vs staffed at '+fmtP(D.staffedCap)+' - a '+((D.staffedCap-D.trueCap)*100).toFixed(0)+'-point gap. Available hours are not fully converting to bookings.';
 }
 
-// ── RENDER ALL ───────────────────────────────────────────────────────────────
-function renderAll() {
-  const fmtDate = d => d ? d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
-  $('hdr-year').textContent = D.year;
-  $('hdr-range').textContent = fmtDate(D.minDate) + ' – ' + fmtDate(D.maxDate);
-  $('hdr-days').textContent = D.ytd.days + ' days tracked';
-  $('hdr-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-
-  renderOverview();
-  renderRevenue();
-  renderCapacity();
-  renderClients();
-  drawTrend();
+function renderRevenue(D){
+  var segs=[
+    {label:'Direct Services',val:Math.max(0,D.serviceSales-D.memSales-D.pkgSales-D.gcSales),color:'#8a9e8c'},
+    {label:'Memberships',val:D.memSales,color:'#b8c9ba'},
+    {label:'Packages',val:D.pkgSales,color:'#c4a882'},
+    {label:'Gift Cards',val:D.gcSales,color:'#ddd1bb'},
+    {label:'Products',val:D.productSales,color:'#e8d8c0'}
+  ].filter(function(s){return s.val>0;});
+  var st=segs.reduce(function(a,s){return a+s.val;},0);
+  var cv=el('donutCanvas'),ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,160,160);var start=-Math.PI/2;
+  segs.forEach(function(s){var a=(s.val/st)*Math.PI*2;ctx.beginPath();ctx.moveTo(80,80);ctx.arc(80,80,65,start,start+a);ctx.closePath();ctx.fillStyle=s.color;ctx.fill();start+=a;});
+  ctx.beginPath();ctx.arc(80,80,42,0,Math.PI*2);ctx.fillStyle='#f5f0e8';ctx.fill();
+  ctx.font='600 13px DM Mono';ctx.fillStyle='#2c2c2c';ctx.textAlign='center';ctx.fillText(fmtK(D.serviceSales),80,76);
+  ctx.font='300 9px DM Mono';ctx.fillStyle='#999';ctx.fillText('services',80,90);
+  el('donut-legend').innerHTML=segs.map(function(s){return'<div class="legend-item"><span class="legend-swatch" style="background:'+s.color+'"></span>'+s.label+'<span class="legend-pct">'+(st>0?(s.val/st*100).toFixed(0):0)+'%</span></div>';}).join('');
+  makeBars('dow-bars',D.dow,function(d){return d.avgInflow;},function(v){return fmtK(v);});
+  makeBars('dow-sale-bars',D.dow,function(d){return d.avgSale;},function(v){return'$'+v.toFixed(2);},'clay');
+  var maxM=Math.max.apply(null,D.monthly.map(function(m){return m.inflow;}).concat([1]));
+  el('monthly-bars').innerHTML=D.monthly.map(function(m){return'<div class="bar-row" style="grid-template-columns:80px 1fr 80px"><div class="bar-label">'+m.label.slice(0,3)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(m.inflow/maxM*100).toFixed(1)+'%"></div></div><div class="bar-val">'+fmtK(m.inflow)+'</div></div>';}).join('');
+  var srt=D.dow.slice().sort(function(a,b){return b.avgInflow-a.avgInflow;});
+  el('best-day-insight').textContent=srt[0].day+'s average '+fmtK(srt[0].avgInflow)+' inflow and $'+srt[0].avgSale.toFixed(0)+' avg sale - your premium day this period.';
+  el('weak-day-insight').textContent=srt[srt.length-1].day+'s average '+fmtK(srt[srt.length-1].avgInflow)+' inflow. A targeted promotion or schedule adjustment could help.';
 }
 
-function renderOverview() {
-  const y = D.ytd;
-  const msSvcPct = y.serviceSales > 0 ? ((y.memSales + y.pkgSales) / y.serviceSales * 100).toFixed(0) : 0;
-  const retailPct = y.serviceSales > 0 ? (y.productSales / y.serviceSales * 100).toFixed(1) : 0;
-  const tipsPct = y.serviceSales > 0 ? (y.tips / y.serviceSales * 100).toFixed(1) : 0;
-
-  $('kpi-grid').innerHTML = `
-    <div class="kpi-card">
-      <div class="kpi-label">Net Inflow YTD</div>
-      <div class="kpi-value">${fmtK(y.inflow)}</div>
-      <div class="kpi-sub">${fmtK(y.outflow)} outflow → +${fmtK(y.cashChange)} net</div>
-      <div class="kpi-insight good">✦ Strong positive cash position</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Service Revenue</div>
-      <div class="kpi-value">${fmtK(y.serviceSales)}</div>
-      <div class="kpi-sub">${Math.round(y.appts).toLocaleString()} services delivered</div>
-      <div class="kpi-insight good">✦ Core engine is healthy</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Average Sale</div>
-      <div class="kpi-value">$${y.avgSale.toFixed(2)}</div>
-      <div class="kpi-sub">Per service visit</div>
-      <div class="kpi-insight good">✦ Consistent ticket value</div>
-    </div>
-    <div class="kpi-card ${parseFloat(retailPct) < 5 ? 'alert' : ''}">
-      <div class="kpi-label">Retail (Product) Sales</div>
-      <div class="kpi-value">${fmtK(y.productSales)}</div>
-      <div class="kpi-sub">${retailPct}% of service revenue</div>
-      <div class="kpi-insight ${parseFloat(retailPct) < 5 ? 'warn' : 'good'}">${parseFloat(retailPct) < 5 ? '⚠ Industry avg is 10–20%' : '✦ Solid retail performance'}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Membership Revenue</div>
-      <div class="kpi-value">${fmtK(y.memSales)}</div>
-      <div class="kpi-sub">${y.serviceSales > 0 ? (y.memSales/y.serviceSales*100).toFixed(0) : 0}% of total service sales</div>
-      <div class="kpi-insight good">✦ Strong recurring base</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Package Revenue</div>
-      <div class="kpi-value">${fmtK(y.pkgSales)}</div>
-      <div class="kpi-sub">${y.serviceSales > 0 ? (y.pkgSales/y.serviceSales*100).toFixed(0) : 0}% of total service sales</div>
-      <div class="kpi-insight good">✦ Healthy prepaid loyalty</div>
-    </div>
-    <div class="kpi-card ${y.trueCap < 0.45 ? 'alert' : ''}">
-      <div class="kpi-label">True Capacity Booked</div>
-      <div class="kpi-value">${fmtPct(y.trueCap)}</div>
-      <div class="kpi-sub">Staffed capacity: ${fmtPct(y.staffedCap)}</div>
-      <div class="kpi-insight ${y.trueCap < 0.45 ? 'warn' : 'good'}">${y.trueCap < 0.45 ? '⚠ Growth opportunity here' : '✦ Strong utilization'}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Staff Tips</div>
-      <div class="kpi-value">${fmtK(y.tips)}</div>
-      <div class="kpi-sub">~${tipsPct}% of service revenue</div>
-      <div class="kpi-insight good">✦ Team morale signal</div>
-    </div>`;
-
-  // Monthly table
-  const tbody = $('monthly-tbody');
-  tbody.innerHTML = D.monthly.map(m => `
-    <tr>
-      <td>${m.label}${m.isPartial ? ' <em style="font-size:0.7rem;color:var(--light)">(partial)</em>' : ''}</td>
-      <td>${fmtK(m.inflow)}</td>
-      <td>${fmtK(m.serviceSales)}</td>
-      <td>${Math.round(m.appts)}</td>
-      <td>${Math.round(m.newClients)}</td>
-      <td>$${m.avgSale.toFixed(2)}</td>
-      <td>${fmtPct(m.trueCap)}</td>
-      <td>${fmtK(m.tips)}</td>
-    </tr>`).join('');
-
-  // Dynamic insights
-  const msPct = parseInt(msSvcPct);
-  $('insight-strength').textContent = `Memberships + packages together represent ${msSvcPct}% of service revenue — that's ${msPct > 55 ? 'exceptional' : 'solid'} recurring income and client loyalty.`;
-  $('insight-opportunity').textContent = `Retail is at ${retailPct}% of service revenue. Industry standard is 10–20% — that's roughly ${fmtK(y.serviceSales * 0.10 - y.productSales)}–${fmtK(y.serviceSales * 0.20 - y.productSales)} of additional annual potential.`;
-  $('insight-watch').textContent = `True capacity at ${fmtPct(y.trueCap)} vs staffed capacity at ${fmtPct(y.staffedCap)} — a ${((y.staffedCap - y.trueCap)*100).toFixed(0)}-point gap. You're paying for availability that isn't converting to bookings.`;
+function renderCapacity(D){
+  el('cap-staffed-pct').textContent=fmtP(D.staffedCap);
+  el('cap-true-pct').textContent=fmtP(D.trueCap);
+  var gap=((D.staffedCap-D.trueCap)*100).toFixed(0);
+  el('cap-gap-note').textContent='The '+gap+'-point gap for this period suggests available hours are not fully staffed or booked. Addressing this is your clearest path to revenue growth without adding new clients.';
+  makeBars('cap-dow-bars',D.dow,function(d){return d.avgTrueCap;},function(v){return fmtP(v);},'',true);
+  el('cap-monthly-grid').innerHTML=D.monthly.map(function(m){return'<div><div style="font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--light);margin-bottom:6px">'+m.label+'</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem">'+fmtP(m.trueCap)+'</div><div style="font-size:.62rem;color:var(--mid);margin-top:2px">True capacity</div><div class="cap-bar"><div class="cap-bar-fill" style="width:'+(m.trueCap*100).toFixed(0)+'%"></div></div></div>';}).join('');
+  var upside=Math.max(0,(.50-D.trueCap)*D.avgSale*(D.appts/D.days)*90);
+  el('cap-upside').textContent='At $'+D.avgSale.toFixed(0)+' avg sale, moving from '+fmtP(D.trueCap)+' to 50% true capacity could add roughly '+fmtK(upside)+' over the next quarter.';
+  var low=D.dow.slice().sort(function(a,b){return a.avgTrueCap-b.avgTrueCap;})[0];
+  el('cap-low-day').textContent=low.day+'s average only '+fmtP(low.avgTrueCap)+' true capacity and '+low.avgAppts.toFixed(1)+' appointments this period. Worth checking staffing or scheduling on this day.';
+  el('cap-prebook').textContent=fmtP(D.allPrebook);
 }
 
-function renderRevenue() {
-  const y = D.ytd;
-  const total = y.serviceSales + y.memSales + y.pkgSales + y.gcSales + y.productSales;
-
-  // Donut
-  const canvas = $('donutCanvas');
-  const ctx = canvas.getContext('2d');
-  const segs = [
-    { label: 'Direct Services', val: Math.max(0, y.serviceSales - y.memSales - y.pkgSales - y.gcSales), color: '#8a9e8c' },
-    { label: 'Memberships',     val: y.memSales,  color: '#b8c9ba' },
-    { label: 'Packages',        val: y.pkgSales,  color: '#c4a882' },
-    { label: 'Gift Cards',      val: y.gcSales,   color: '#ddd1bb' },
-    { label: 'Products',        val: y.productSales, color: '#e8d8c0' },
-  ].filter(s => s.val > 0);
-  const segTotal = segs.reduce((a,s) => a + s.val, 0);
-  const cx=80,cy=80,r=65,iR=42;
-  ctx.clearRect(0,0,160,160);
-  let start = -Math.PI/2;
-  segs.forEach(s => {
-    const angle = (s.val/segTotal)*Math.PI*2;
-    ctx.beginPath(); ctx.moveTo(cx,cy);
-    ctx.arc(cx,cy,r,start,start+angle); ctx.closePath();
-    ctx.fillStyle = s.color; ctx.fill();
-    start += angle;
-  });
-  ctx.beginPath(); ctx.arc(cx,cy,iR,0,Math.PI*2);
-  ctx.fillStyle='#f5f0e8'; ctx.fill();
-  ctx.font='600 13px DM Mono'; ctx.fillStyle='#2c2c2c'; ctx.textAlign='center';
-  ctx.fillText(fmtK(y.serviceSales), cx, cy-4);
-  ctx.font='300 9px DM Mono'; ctx.fillStyle='#999';
-  ctx.fillText('services', cx, cy+10);
-
-  $('donut-legend').innerHTML = segs.map(s => `
-    <div class="legend-item">
-      <span class="legend-swatch" style="background:${s.color}"></span>
-      ${s.label}
-      <span class="legend-pct">${segTotal > 0 ? (s.val/segTotal*100).toFixed(0) : 0}%</span>
-    </div>`).join('');
-
-  makeBars('dow-bars',    D.dow, d=>d.avgInflow,   v=>fmtK(v));
-  makeBars('dow-sale-bars', D.dow, d=>d.avgSale,   v=>'$'+v.toFixed(2), 'clay');
-
-  // Monthly bars
-  const mbEl = $('monthly-bars');
-  const maxM = Math.max(...D.monthly.map(m=>m.inflow));
-  mbEl.innerHTML = D.monthly.map(m => `
-    <div class="bar-row" style="grid-template-columns:80px 1fr 80px">
-      <div class="bar-label">${m.label.slice(0,3)}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${maxM>0?(m.inflow/maxM*100):0}%"></div></div>
-      <div class="bar-val">${fmtK(m.inflow)}</div>
-    </div>`).join('');
-
-  // Best/weakest day insights
-  const sorted = [...D.dow].sort((a,b)=>b.avgInflow-a.avgInflow);
-  const best = sorted[0], worst = sorted[sorted.length-1];
-  $('best-day-insight').textContent = `${best.day}s average ${fmtK(best.avgInflow)} inflow and the highest avg sale at $${best.avgSale.toFixed(0)}. This is your premium day — make sure you're staffed for it.`;
-  $('weak-day-insight').textContent = `${worst.day}s have the lowest average inflow at ${fmtK(worst.avgInflow)} and avg sale of $${worst.avgSale.toFixed(0)}. A targeted promotion or adjusted schedule could lift this day.`;
+function renderClients(D){
+  var np=(D.appts>0?D.newClients/D.appts*100:0).toFixed(1);
+  el('client-kpi-grid').innerHTML=
+    '<div class="kpi-card"><div class="kpi-label">Total Appointments</div><div class="kpi-value">'+Math.round(D.appts).toLocaleString()+'</div><div class="kpi-sub">'+(D.appts/D.days).toFixed(1)+' per day avg</div></div>'+
+    '<div class="kpi-card"><div class="kpi-label">New Clients</div><div class="kpi-value">'+Math.round(D.newClients)+'</div><div class="kpi-sub">'+np+'% of all visits</div><div class="kpi-insight good">Healthy acquisition</div></div>'+
+    '<div class="kpi-card"><div class="kpi-label">All-Client Prebook</div><div class="kpi-value">'+fmtP(D.allPrebook)+'</div><div class="kpi-sub">~1 in '+Math.round(1/Math.max(D.allPrebook,.01))+' clients rebooks</div><div class="kpi-insight '+(D.allPrebook>=.35?'good':'warn')+'">'+(D.allPrebook>=.35?'At or above industry avg':'Industry avg is 35-50%')+'</div></div>'+
+    '<div class="kpi-card'+(D.newPrebook<.35?' alert':'')+'"><div class="kpi-label">New Client Prebook</div><div class="kpi-value">'+fmtP(D.newPrebook)+'</div><div class="kpi-sub">'+((D.allPrebook-D.newPrebook)*100).toFixed(0)+'pts below overall rate</div><div class="kpi-insight '+(D.newPrebook<.35?'warn':'good')+'">'+(D.newPrebook<.35?'Retention gap to close':'Strong new client rebook')+'</div></div>';
+  var maxNC=Math.max.apply(null,D.monthly.map(function(m){return m.newClients;}).concat([1]));
+  el('new-client-bars').innerHTML=D.monthly.map(function(m){return'<div class="bar-row"><div class="bar-label">'+m.label.slice(0,3)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(m.newClients/maxNC*100).toFixed(1)+'%"></div></div><div class="bar-val">'+Math.round(m.newClients)+'</div></div>';}).join('');
+  var pb=Math.round(D.newClients*D.newPrebook),uplift=Math.max(0,Math.round(D.newClients*(.40-D.newPrebook)));
+  el('retention-math').innerHTML='Of your <strong>'+Math.round(D.newClients)+' new clients</strong> this period, roughly <strong>'+pb+' prebooked</strong> - meaning ~'+(Math.round(D.newClients)-pb)+' came once without scheduling a return.<br><br>Raising new client prebook to 40% would add ~<strong>'+uplift+' more returning clients</strong> - at $'+D.avgSale.toFixed(0)+' avg, that\'s '+fmtK(uplift*D.avgSale)+' in additional revenue.';
+  makeBars('appts-dow-bars',D.dow,function(d){return d.avgAppts;},function(v){return v.toFixed(1);});
 }
 
-function renderCapacity() {
-  const y = D.ytd;
-  $('cap-staffed-pct').textContent = fmtPct(y.staffedCap);
-  $('cap-true-pct').textContent = fmtPct(y.trueCap);
-  const gap = ((y.staffedCap - y.trueCap)*100).toFixed(0);
-  $('cap-gap-note').textContent = `The ${gap}-point gap between these numbers suggests you have more room availability than staff coverage — meaning you may be turning away clients or not scheduling staff during available hours.`;
-
-  makeBars('cap-dow-bars', D.dow, d=>d.avgTrueCap, v=>fmtPct(v), '', true);
-
-  // Monthly capacity grid
-  $('cap-monthly-grid').innerHTML = D.monthly.map(m => `
-    <div class="cap-month">
-      <div class="cap-month-label">${m.label}${m.isPartial?' *':''}</div>
-      <div class="cap-month-val">${fmtPct(m.trueCap)}</div>
-      <div class="cap-month-sub">True capacity booked</div>
-      <div class="cap-bar"><div class="cap-bar-fill" style="width:${(m.trueCap*100).toFixed(0)}%"></div></div>
-    </div>`).join('');
-
-  const capTrend = D.monthly.length >= 2
-    ? (D.monthly[D.monthly.length-1].trueCap > D.monthly[0].trueCap ? 'improving' : 'declining')
-    : 'stable';
-  $('cap-trend-note').textContent = capTrend === 'improving'
-    ? 'Capacity has improved since the start of the year — a positive signal. The question is what would push it above 50%.'
-    : 'Capacity has softened slightly month-over-month. Consider whether staffing, scheduling, or outreach could help fill more slots.';
-
-  const upside = (0.50 - y.trueCap) * y.avgSale * (y.appts / y.days) * 90;
-  $('cap-upside').textContent = `At your current avg sale of $${y.avgSale.toFixed(0)}, moving from ${fmtPct(y.trueCap)} to 50% true capacity would add roughly ${fmtK(Math.max(0,upside))} in the next quarter.`;
-
-  const lowestDay = [...D.dow].sort((a,b)=>a.avgTrueCap-b.avgTrueCap)[0];
-  $('cap-low-day').textContent = `${lowestDay.day}s average only ${fmtPct(lowestDay.avgTrueCap)} true capacity and ${lowestDay.avgAppts.toFixed(1)} appointments — far below other days. Is staffing reduced? Is it a scheduling gap?`;
-  $('cap-prebook').textContent = fmtPct(y.allPrebook);
-}
-
-function renderClients() {
-  const y = D.ytd;
-  const newPct = y.appts > 0 ? (y.newClients / y.appts * 100).toFixed(1) : 0;
-  const prebookDiff = ((y.allPrebook - y.newPrebook) * 100).toFixed(0);
-
-  $('client-kpi-grid').innerHTML = `
-    <div class="kpi-card">
-      <div class="kpi-label">Total Appointments</div>
-      <div class="kpi-value">${Math.round(y.appts).toLocaleString()}</div>
-      <div class="kpi-sub">${(y.appts/y.days).toFixed(1)} per day avg</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">New Clients</div>
-      <div class="kpi-value">${Math.round(y.newClients)}</div>
-      <div class="kpi-sub">${newPct}% of all visits</div>
-      <div class="kpi-insight good">✦ Healthy acquisition rate</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">All-Client Prebook</div>
-      <div class="kpi-value">${fmtPct(y.allPrebook)}</div>
-      <div class="kpi-sub">~1 in ${Math.round(1/Math.max(y.allPrebook,0.01))} clients rebooks</div>
-      <div class="kpi-insight ${y.allPrebook >= 0.35 ? 'good' : 'warn'}">${y.allPrebook >= 0.35 ? '✦ At or above industry avg' : '⚠ Industry avg is 35–50%'}</div>
-    </div>
-    <div class="kpi-card ${y.newPrebook < 0.35 ? 'alert' : ''}">
-      <div class="kpi-label">New Client Prebook</div>
-      <div class="kpi-value">${fmtPct(y.newPrebook)}</div>
-      <div class="kpi-sub">${prebookDiff}pts below overall rate</div>
-      <div class="kpi-insight ${y.newPrebook < 0.35 ? 'warn' : 'good'}">${y.newPrebook < 0.35 ? '⚠ Retention gap to close' : '✦ Strong new client rebook'}</div>
-    </div>`;
-
-  // New clients by month bars
-  const maxNC = Math.max(...D.monthly.map(m=>m.newClients));
-  $('new-client-bars').innerHTML = D.monthly.map(m => `
-    <div class="bar-row">
-      <div class="bar-label">${m.label.slice(0,3)}${m.isPartial?'*':''}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${maxNC>0?(m.newClients/maxNC*100):0}%"></div></div>
-      <div class="bar-val">${Math.round(m.newClients)}</div>
-    </div>`).join('');
-
-  const ncConsistent = D.monthly.filter(m=>!m.isPartial).length > 1;
-  $('new-client-note').textContent = ncConsistent
-    ? 'New client acquisition is tracking consistently across months — a strong signal that your awareness and marketing are working steadily.'
-    : 'Keep tracking new client numbers month-over-month to spot acquisition trends.';
-
-  const prebookedNew = Math.round(y.newClients * y.newPrebook);
-  const unbookedNew = Math.round(y.newClients - prebookedNew);
-  const uplift = Math.round(y.newClients * (0.40 - y.newPrebook));
-  $('retention-math').innerHTML = `Of your <strong>${Math.round(y.newClients)} new clients</strong> YTD, roughly <strong>${prebookedNew} have prebooked</strong> — meaning about ${unbookedNew} new clients came once and may not have scheduled a return.<br><br>
-    If you raised new client prebook from ${fmtPct(y.newPrebook)} to 40%, that's roughly <strong>${uplift > 0 ? uplift : 0} more returning clients per quarter</strong> — at $${y.avgSale.toFixed(0)} avg sale, that's ${fmtK(Math.max(0,uplift)*y.avgSale)} in low-effort revenue each quarter.`;
-
-  makeBars('appts-dow-bars', D.dow, d=>d.avgAppts, v=>v.toFixed(1));
-}
-
-// ── BAR CHART HELPER ─────────────────────────────────────────────────────────
-function makeBars(containerId, items, getValue, formatter, colorClass='', alertLow=false) {
-  const container = $(containerId);
-  if (!container) return;
-  const max = Math.max(...items.map(getValue), 0.001);
-  container.innerHTML = '';
-  items.forEach(item => {
-    const val = getValue(item);
-    const pct = (val / max * 100).toFixed(1);
-    const isAlert = alertLow && val < max * 0.35;
-    const row = document.createElement('div');
-    row.className = 'bar-row';
-    row.innerHTML = `
-      <div class="bar-label">${(item.day || item.label || '').slice(0,3)}</div>
-      <div class="bar-track"><div class="bar-fill ${isAlert ? 'alert' : colorClass}" style="width:${pct}%"></div></div>
-      <div class="bar-val">${formatter(val)}</div>`;
+function makeBars(id,items,getValue,formatter,colorClass,alertLow){
+  var container=el(id);if(!container)return;
+  var max=Math.max.apply(null,items.map(getValue).concat([.001]));
+  container.innerHTML='';
+  items.forEach(function(item){
+    var val=getValue(item),pct=(val/max*100).toFixed(1);
+    var ia=alertLow&&val<max*.35;
+    var row=document.createElement('div');row.className='bar-row';
+    row.innerHTML='<div class="bar-label">'+(item.day||item.label||'').slice(0,3)+'</div><div class="bar-track"><div class="bar-fill '+(ia?'alert':(colorClass||''))+'" style="width:'+pct+'%"></div></div><div class="bar-val">'+formatter(val)+'</div>';
     container.appendChild(row);
   });
 }
 
-// ── TREND CHART ──────────────────────────────────────────────────────────────
-const metricLabels = {
-  net_inflow: 'Net Inflow ($)', service_sales: 'Service Sales ($)',
-  true_cap: 'True Capacity (%)', appts: 'Appointments'
-};
-
-function setMetric(m) {
-  currentMetric = m;
-  document.querySelectorAll('.metric-btn').forEach(b => b.classList.remove('active-metric'));
-  const map = { net_inflow:'inflow', service_sales:'sales', true_cap:'cap', appts:'appts' };
-  $('btn-' + map[m]).classList.add('active-metric');
-  drawTrend();
+var ML={net_inflow:'Net Inflow ($)',service_sales:'Service Sales ($)',true_cap:'True Capacity (%)',appts:'Appointments'};
+function setMetric(m){
+  currentMetric=m;
+  document.querySelectorAll('.metric-btn').forEach(function(b){b.classList.remove('active-metric');});
+  var map={net_inflow:'inflow',service_sales:'sales',true_cap:'cap',appts:'appts'};
+  el('btn-'+map[m]).classList.add('active-metric');
+  drawTrend(window._D||compute(filtered));
 }
 
-function drawTrend() {
-  const canvas = $('trendCanvas');
-  if (!canvas || !D.daily) return;
-  canvas.width = (canvas.offsetWidth || 700) * (window.devicePixelRatio || 1);
-  canvas.height = 220 * (window.devicePixelRatio || 1);
-  const ctx = canvas.getContext('2d');
-  ctx.scale(window.devicePixelRatio||1, window.devicePixelRatio||1);
-  const W = canvas.offsetWidth || 700, H = 220;
-  const pad = { top:20, right:20, bottom:40, left:55 };
-  const cW = W-pad.left-pad.right, cH = H-pad.top-pad.bottom;
-
-  const pts = D.daily.filter(d => d.net_inflow > 0 || d.appts > 0);
-  const vals = pts.map(d => d[currentMetric]);
-  const maxVal = Math.max(...vals, 1);
-
-  ctx.clearRect(0, 0, W, H);
-
-  // Grid
-  ctx.strokeStyle = 'rgba(138,158,140,0.15)'; ctx.lineWidth = 1;
-  for (let i=0; i<=4; i++) {
-    const y = pad.top + cH - (i/4)*cH;
-    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left+cW, y); ctx.stroke();
-    const v = (maxVal/4)*i;
-    const label = currentMetric==='true_cap' ? (i*25)+'%' : currentMetric==='appts' ? Math.round(v) : '$'+Math.round(v/1000)+'k';
-    ctx.fillStyle='#999'; ctx.font='10px DM Mono'; ctx.textAlign='right';
-    ctx.fillText(label, pad.left-8, y+4);
+function drawTrend(D){
+  window._D=D;
+  var canvas=el('trendCanvas');if(!canvas||!D)return;
+  canvas.width=(canvas.offsetWidth||700)*(window.devicePixelRatio||1);
+  canvas.height=220*(window.devicePixelRatio||1);
+  var ctx=canvas.getContext('2d');ctx.scale(window.devicePixelRatio||1,window.devicePixelRatio||1);
+  var W=canvas.offsetWidth||700,H=220,pad={top:20,right:20,bottom:40,left:55};
+  var cW=W-pad.left-pad.right,cH=H-pad.top-pad.bottom;
+  var pts=D.daily.filter(function(d){return d.net_inflow>0||d.appts>0;});
+  if(!pts.length)return;
+  var maxVal=Math.max.apply(null,pts.map(function(d){return d[currentMetric];}).concat([1]));
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(138,158,140,0.15)';ctx.lineWidth=1;
+  for(var i=0;i<=4;i++){
+    var y=pad.top+cH-(i/4)*cH;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+cW,y);ctx.stroke();
+    var v=(maxVal/4)*i,lbl=currentMetric==='true_cap'?(i*25)+'%':currentMetric==='appts'?Math.round(v):'$'+Math.round(v/1000)+'k';
+    ctx.fillStyle='#999';ctx.font='10px DM Mono';ctx.textAlign='right';ctx.fillText(lbl,pad.left-8,y+4);
   }
-
-  // Month separators
-  const monthsSeen = new Set();
-  pts.forEach((d,i) => {
-    const m = d.date.slice(0,7);
-    if (!monthsSeen.has(m)) {
-      monthsSeen.add(m);
-      const x = pad.left + (i/(pts.length-1))*cW;
-      ctx.strokeStyle='rgba(138,158,140,0.3)'; ctx.setLineDash([3,4]);
-      ctx.beginPath(); ctx.moveTo(x,pad.top); ctx.lineTo(x,pad.top+cH); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle='#aaa'; ctx.font='9px DM Mono'; ctx.textAlign='left';
-      ctx.fillText(MONTH_NAMES[m.slice(5)]?.slice(0,3)||m.slice(5), x+4, pad.top+cH+20);
+  var seen={};
+  pts.forEach(function(d,i){
+    var m=d.date.slice(0,7);
+    if(!seen[m]){seen[m]=1;
+      var x=pad.left+(i/(pts.length-1||1))*cW;
+      ctx.strokeStyle='rgba(138,158,140,0.3)';ctx.setLineDash([3,4]);
+      ctx.beginPath();ctx.moveTo(x,pad.top);ctx.lineTo(x,pad.top+cH);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='#aaa';ctx.font='9px DM Mono';ctx.textAlign='left';
+      var mn=MN[m.slice(5)];ctx.fillText(mn?mn.slice(0,3):m.slice(5),x+4,pad.top+cH+20);
     }
   });
-
-  // Area
   ctx.beginPath();
-  pts.forEach((d,i) => {
-    const x = pad.left+(i/(pts.length-1))*cW;
-    const y = pad.top+cH-(d[currentMetric]/maxVal)*cH;
-    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-  });
-  const grad = ctx.createLinearGradient(0,pad.top,0,pad.top+cH);
-  grad.addColorStop(0,'rgba(138,158,140,0.25)'); grad.addColorStop(1,'rgba(138,158,140,0)');
-  ctx.lineTo(pad.left+cW,pad.top+cH); ctx.lineTo(pad.left,pad.top+cH); ctx.closePath();
-  ctx.fillStyle=grad; ctx.fill();
-
-  // Line
+  pts.forEach(function(d,i){var x=pad.left+(i/(pts.length-1||1))*cW,y=pad.top+cH-(d[currentMetric]/maxVal)*cH;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  var grad=ctx.createLinearGradient(0,pad.top,0,pad.top+cH);
+  grad.addColorStop(0,'rgba(138,158,140,0.25)');grad.addColorStop(1,'rgba(138,158,140,0)');
+  ctx.lineTo(pad.left+cW,pad.top+cH);ctx.lineTo(pad.left,pad.top+cH);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
   ctx.beginPath();
-  pts.forEach((d,i) => {
-    const x = pad.left+(i/(pts.length-1))*cW;
-    const y = pad.top+cH-(d[currentMetric]/maxVal)*cH;
-    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-  });
-  ctx.strokeStyle='#5a6e5c'; ctx.lineWidth=1.5; ctx.stroke();
-
-  // Top/low days
-  const byInflow = [...D.daily].filter(d=>d.net_inflow>0).sort((a,b)=>b.net_inflow-a.net_inflow);
-  $('top-days').innerHTML = byInflow.slice(0,5).map(d=>`
-    <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0">
-      <span>${d.date}</span><span style="color:var(--sage-dark)">${fmtK(d.net_inflow)}</span>
-    </div>`).join('');
-  $('low-days').innerHTML = byInflow.slice(-5).reverse().map(d=>`
-    <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0">
-      <span>${d.date}</span><span style="color:var(--alert)">${fmtK(d.net_inflow)}</span>
-    </div>`).join('');
-
-  // Tooltip
-  const tooltip = $('tooltip');
-  canvas.onmousemove = e => {
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left - pad.left;
-    const idx = Math.round((mx/cW)*(pts.length-1));
-    if (idx<0||idx>=pts.length) { tooltip.style.display='none'; return; }
-    const d = pts[idx];
-    const fmt = currentMetric==='true_cap' ? fmtPct(d[currentMetric])
-      : currentMetric==='appts' ? d[currentMetric].toFixed(0)
-      : fmtK(d[currentMetric]);
-    tooltip.style.display='block';
-    tooltip.style.left=(e.clientX+12)+'px';
-    tooltip.style.top=(e.clientY-10)+'px';
-    tooltip.innerHTML=`${d.date}<br>${metricLabels[currentMetric]}: ${fmt}`;
+  pts.forEach(function(d,i){var x=pad.left+(i/(pts.length-1||1))*cW,y=pad.top+cH-(d[currentMetric]/maxVal)*cH;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.strokeStyle='#5a6e5c';ctx.lineWidth=1.5;ctx.stroke();
+  var byI=D.daily.filter(function(d){return d.net_inflow>0;}).sort(function(a,b){return b.net_inflow-a.net_inflow;});
+  el('top-days').innerHTML=byI.slice(0,5).map(function(d){return'<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0"><span>'+d.date+'</span><span style="color:var(--sage-dark)">'+fmtK(d.net_inflow)+'</span></div>';}).join('');
+  el('low-days').innerHTML=byI.slice(-5).reverse().map(function(d){return'<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0"><span>'+d.date+'</span><span style="color:var(--alert)">'+fmtK(d.net_inflow)+'</span></div>';}).join('');
+  var tt=el('tooltip');
+  canvas.onmousemove=function(e){
+    var rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left-pad.left;
+    var idx=Math.round((mx/cW)*(pts.length-1));
+    if(idx<0||idx>=pts.length){tt.style.display='none';return;}
+    var d=pts[idx],fmt=currentMetric==='true_cap'?fmtP(d[currentMetric]):currentMetric==='appts'?d[currentMetric].toFixed(0):fmtK(d[currentMetric]);
+    tt.style.display='block';tt.style.left=(e.clientX+12)+'px';tt.style.top=(e.clientY-10)+'px';
+    tt.innerHTML=d.date+'<br>'+ML[currentMetric]+': '+fmt;
   };
-  canvas.onmouseleave = () => { tooltip.style.display='none'; };
+  canvas.onmouseleave=function(){tt.style.display='none';};
 }
 
-// ── NAVIGATION ───────────────────────────────────────────────────────────────
-function showView(id, btn) {
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-  $('view-'+id).classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id==='trends') setTimeout(drawTrend, 50);
-  if (id==='revenue') setTimeout(()=>{ if(D.ytd) renderRevenue(); }, 50);
+function showView(id,btn){
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
+  document.querySelectorAll('nav button').forEach(function(b){b.classList.remove('active');});
+  el('view-'+id).classList.add('active');if(btn)btn.classList.add('active');
+  if(id==='trends')setTimeout(function(){drawTrend(window._D||compute(filtered));},50);
 }
 
-window.addEventListener('resize', () => {
-  if ($('view-trends').classList.contains('active')) drawTrend();
-});
-
-// ── BOOT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('resize',function(){if(el('view-trends').classList.contains('active'))drawTrend(window._D||compute(filtered));});
 loadData();
 </script>
 </body>
