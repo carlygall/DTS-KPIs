@@ -1,3 +1,23 @@
+
+Attachment EOD KPI Report (Responses).xlsx added.Conversation opened. 1 unread message.
+
+Skip to content
+Using Gmail with screen readers
+1 of 5,351
+(no subject)
+Inbox
+
+Carly Gallagher <carly.i.gallagher@gmail.com>
+Attachments
+1:06 AM (3 minutes ago)
+to me
+
+
+
+
+
+ One attachment
+  •  Scanned by Gmail
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -475,32 +495,32 @@ async function loadData() {
 function processData(rows) {
   const headers = Object.keys(rows[0]);
 
-  // Resolve column names dynamically
+  // Resolve column names — exact match first, then partial fallback
   const COL = {
     date:         resolveCol(headers, ["Today's Date", "Date", "Todays Date"]),
     dow:          resolveCol(headers, ["Day of the Week", "Day of Week", "DayOfWeek"]),
     inflow:       resolveCol(headers, ["Net Inflow"]),
     outflow:      resolveCol(headers, ["Net Outflow"]),
     cashChange:   resolveCol(headers, ["Cash Position Change"]),
-    numServices:  resolveCol(headers, ["# Services"]),
-    serviceSales: resolveCol(headers, ["Service Sales $", "Service Sales"]),
+    numServices:  resolveCol(headers, ["# Services (Sales Summary Report)", "# Services"]),
+    serviceSales: resolveCol(headers, ["Service Sales $ (Sales Summary Report)", "Service Sales $", "Service Sales"]),
     avgSale:      resolveCol(headers, ["Average Sale"]),
-    numProducts:  resolveCol(headers, ["# Product Sales"]),
-    productSales: resolveCol(headers, ["Product Sales $", "Product Sales"]),
-    refunds:      resolveCol(headers, ["Refund $", "Refund"]),
-    gcSales:      resolveCol(headers, ["Gift Card Sales $", "Gift Card Sales"]),
-    gcUsage:      resolveCol(headers, ["Gift Card Usage $", "Gift Card Usage"]),
-    pkgSales:     resolveCol(headers, ["Package Sales $", "Package Sales"]),
-    pkgUsage:     resolveCol(headers, ["Package Usage $", "Package Usage"]),
-    memSales:     resolveCol(headers, ["Membership Sales $", "Membership Sales"]),
-    memUsage:     resolveCol(headers, ["Membership Usage $", "Membership Usage"]),
-    tips:         resolveCol(headers, ["Staff Tips Total", "Staff Tips"]),
-    hoursAvail:   resolveCol(headers, ["Hours Avail"]),
-    hoursBooked:  resolveCol(headers, ["Hours Booked"]),
-    staffedCap:   resolveCol(headers, ["Staffed Capacity", "Staffed Cap"]),
-    trueCap:      resolveCol(headers, ["True Capacity", "True Cap"]),
-    appts:        resolveCol(headers, ["Appointments All Clients Total", "Total Appointments", "Appointments Total"]),
-    newClients:   resolveCol(headers, ["Appointments New Clients Total", "New Clients Total", "New Clients"]),
+    numProducts:  resolveCol(headers, ["# Product Sales (Sales Summary Report)", "# Product Sales"]),
+    productSales: resolveCol(headers, ["Product Sales $ (Sales Summary Report)", "Product Sales $", "Product Sales"]),
+    refunds:      resolveCol(headers, ["Refund $ (Refund Summary Report)", "Refund $", "Refund"]),
+    gcSales:      resolveCol(headers, ["Gift Card Sales $ (Gift Card Sales Report)", "Gift Card Sales $", "Gift Card Sales"]),
+    gcUsage:      resolveCol(headers, ["Gift Card Usage $ (Gift Card Usage Report)", "Gift Card Usage $", "Gift Card Usage"]),
+    pkgSales:     resolveCol(headers, ["Package Sales $ (Package Sales Report)", "Package Sales $", "Package Sales"]),
+    pkgUsage:     resolveCol(headers, ["Package Usage $ (Package Usage Report)", "Package Usage $", "Package Usage"]),
+    memSales:     resolveCol(headers, ["Membership Sales $ (Membership Payment Report)", "Membership Sales $", "Membership Sales"]),
+    memUsage:     resolveCol(headers, ["Membership Usage $ (Membership Usage Report)", "Membership Usage $", "Membership Usage"]),
+    tips:         resolveCol(headers, ["Staff Tips Total (Cash Flow Report)", "Staff Tips Total", "Staff Tips"]),
+    hoursAvail:   resolveCol(headers, ["Hours Avail #", "Hours Avail"]),
+    hoursBooked:  resolveCol(headers, ["Hours Booked #", "Hours Booked"]),
+    staffedCap:   resolveCol(headers, ["Staffed Capacity % Booked", "Staffed Capacity", "Staffed Cap"]),
+    trueCap:      resolveCol(headers, ["True Capacity % Booked", "True Capacity", "True Cap"]),
+    appts:        resolveCol(headers, ["Appointments All Clients Total #", "Appointments All Clients Total", "Total Appointments"]),
+    newClients:   resolveCol(headers, ["Appointments New Clients Total #", "Appointments New Clients Total", "New Clients"]),
     allPrebook:   resolveCol(headers, ["All Client Prebooking", "All Client Prebook"]),
     newPrebook:   resolveCol(headers, ["New Client Prebooking", "New Client Prebook"]),
   };
@@ -529,12 +549,12 @@ function processData(rows) {
     pkgSales:     num(r[COL.pkgSales]),
     memSales:     num(r[COL.memSales]),
     tips:         num(r[COL.tips]),
-    staffedCap:   num(r[COL.staffedCap]),
-    trueCap:      num(r[COL.trueCap]),
+    staffedCap:   num(r[COL.staffedCap]) > 1 ? num(r[COL.staffedCap]) / 100 : num(r[COL.staffedCap]),
+    trueCap:      num(r[COL.trueCap])    > 1 ? num(r[COL.trueCap])    / 100 : num(r[COL.trueCap]),
     appts:        num(r[COL.appts]),
     newClients:   num(r[COL.newClients]),
-    allPrebook:   num(r[COL.allPrebook]),
-    newPrebook:   num(r[COL.newPrebook]),
+    allPrebook:   num(r[COL.allPrebook]) > 1 ? num(r[COL.allPrebook]) / 100 : num(r[COL.allPrebook]),
+    newPrebook:   num(r[COL.newPrebook]) > 1 ? num(r[COL.newPrebook]) / 100 : num(r[COL.newPrebook]),
   }));
 
   const sum = key => parsed.reduce((a,r) => a + r[key], 0);
@@ -999,3 +1019,5 @@ loadData();
 </script>
 </body>
 </html>
+index-1.html
+Displaying index-1.html.
