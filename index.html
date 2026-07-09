@@ -112,6 +112,33 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
 .cap-bar-fill{height:100%;background:var(--sage);border-radius:2px}
 .no-data{font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--light);font-size:1.1rem;padding:40px 0;text-align:center}
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:900px){
+  header,.filter-bar,nav,.view{padding-left:24px;padding-right:24px}
+  .kpi-grid,#client-kpi-grid{grid-template-columns:repeat(2,1fr)!important;gap:12px}
+  .two-col{grid-template-columns:1fr}
+  .insight-row{grid-template-columns:1fr!important}
+}
+@media(max-width:600px){
+  header{flex-direction:column;align-items:flex-start;gap:10px;padding:20px 16px 16px}
+  .header-meta{text-align:left}
+  .logo-area h1{font-size:1.8rem}
+  .filter-bar{padding:8px 16px;gap:6px}
+  .filter-divider{display:none}
+  #range-label{border-left:none;padding-left:0;margin-left:0;width:100%}
+  .date-inputs{flex-wrap:wrap}
+  nav{padding:0 8px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+  nav button{padding:12px 14px;white-space:nowrap;flex:0 0 auto}
+  .view{padding:24px 16px 48px}
+  .kpi-grid,#client-kpi-grid{grid-template-columns:1fr!important}
+  .kpi-value{font-size:2rem}
+  .panel{padding:18px}
+  .donut-wrap{flex-direction:column;align-items:flex-start;gap:16px}
+  .bar-row{grid-template-columns:52px 1fr 62px;gap:8px;font-size:.6rem}
+  .month-table{font-size:.62rem}
+  .month-table th,.month-table td{padding-left:6px;padding-right:6px}
+  .section-title{font-size:1.15rem}
+  #trendCanvas{cursor:default}
+}
 </style>
 </head>
 <body>
@@ -150,7 +177,6 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
   <button onclick="showView('trends',this)">Daily Trends</button>
 </nav>
 <div class="view active" id="view-overview">
-  <div class="note-strip">These figures reflect cash from sales activity only. They do not include operating costs (payroll, rent, product costs, supplies), so this is money generated before expenses, not your bank balance. Tips are shown separately as a staff pass-through.</div>
   <div class="kpi-grid" id="kpi-grid"></div>
   <div class="section-title">Period Breakdown</div>
   <div class="panel" style="margin-bottom:28px;overflow-x:auto"><table class="month-table"><thead><tr>
@@ -230,7 +256,7 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
 <script>
 var SHEET_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQfueNweTFlHeobBmAvpzpae6H1rtfBjY0rTZf_8ozQHUobpY6Wsl0JfsBI4qS8CDfzpr2m3KCrjq7c/pub?output=csv&gid=1038672996';
 /* ====== SET YOUR PASSWORD HERE ====== */
-var DASH_PASSWORD='sp4lun3ll4!';
+var DASH_PASSWORD='changeme';
 /* ==================================== */
 var MN={'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June','07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
 var DOW=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
