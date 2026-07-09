@@ -215,7 +215,7 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
       </div>
       <div style="background:rgba(196,122,90,0.08);border:1px solid rgba(196,122,90,0.2);padding:16px;font-size:.72rem;line-height:1.7" id="cap-gap-note">-</div>
     </div>
-    <div class="panel"><div class="panel-title">True Capacity % by Day of Week</div><div class="bar-chart" id="cap-dow-bars"></div></div>
+    <div class="panel"><div class="panel-title">Staffed vs True Capacity by Day</div><div class="donut-legend" id="cap-legend" style="flex-direction:row;gap:18px;margin-bottom:14px"></div><div class="bar-chart" id="cap-dow-bars"></div></div>
   </div>
   <div class="panel" style="margin-bottom:24px">
     <div class="panel-title">Capacity by Period</div>
@@ -258,10 +258,10 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
     <button onclick="setMetric('true_cap')" id="btn-cap" class="metric-btn">True Capacity %</button>
     <button onclick="setMetric('appts')" id="btn-appts" class="metric-btn">Appointments</button>
   </div>
-  <div class="panel" style="padding:24px 24px 16px"><canvas id="trendCanvas" height="220"></canvas></div>
+  <div class="panel" style="padding:24px 24px 16px"><canvas id="trendCanvas" height="220"></canvas><div class="donut-legend" id="trend-legend" style="flex-direction:row;gap:18px;margin-top:12px"></div></div>
   <div class="two-col" style="margin-top:20px">
-    <div class="panel"><div class="panel-title">Top 5 Net Cash Days</div><div id="top-days" style="font-size:.68rem;line-height:2"></div></div>
-    <div class="panel"><div class="panel-title">5 Lowest Net Cash Days</div><div id="low-days" style="font-size:.68rem;line-height:2"></div></div>
+    <div class="panel"><div class="panel-title" id="top-days-title">Top 5 Net Cash Days</div><div id="top-days" style="font-size:.68rem;line-height:2"></div></div>
+    <div class="panel"><div class="panel-title" id="low-days-title">5 Lowest Net Cash Days</div><div id="low-days" style="font-size:.68rem;line-height:2"></div></div>
   </div>
 </div>
 </div>
@@ -485,9 +485,9 @@ function compute(rows){
   rows.forEach(function(r){if(dmap[r.dow])dmap[r.dow].push(r);});
   var dow=DOW.map(function(day){
     var dr=dmap[day];
-    if(!dr.length)return{day:day,avgNetCash:0,avgAppts:0,avgSale:0,avgTrueCap:0};
+    if(!dr.length)return{day:day,avgNetCash:0,avgAppts:0,avgSale:0,avgTrueCap:0,avgStaffedCap:0};
     function da(k){return dr.reduce(function(s,r){return s+r[k];},0)/dr.length;}
-    return{day:day,avgNetCash:da('netCash'),avgAppts:da('appts'),avgSale:da('avgSale'),avgTrueCap:da('trueCap')};
+    return{day:day,avgNetCash:da('netCash'),avgAppts:da('appts'),avgSale:da('avgSale'),avgTrueCap:da('trueCap'),avgStaffedCap:da('staffedCap')};
   });
   return{netCash:s('netCash'),cashIn:s('cashIn'),cashOut:s('cashOut'),
     serviceSales:s('serviceSales'),productSales:s('productSales'),
@@ -502,7 +502,7 @@ function compute(rows){
     avgSale:av('avgSale'),trueCap:av('trueCap'),staffedCap:av('staffedCap'),
     allPrebook:av('allPrebook'),newPrebook:av('newPrebook'),
     days:rows.length,monthly:monthly,dow:dow,
-    daily:rows.map(function(r){return{date:r.dateStr,net_cash:r.netCash,service_sales:r.serviceSales,true_cap:r.trueCap,appts:r.appts,gc_run:r.gcRunning,pkg_run:r.pkgRunning,mem_run:r.memRunning};})};
+    daily:rows.map(function(r){return{date:r.dateStr,net_cash:r.netCash,service_sales:r.serviceSales,true_cap:r.trueCap,staffed_cap:r.staffedCap,appts:r.appts,gc_run:r.gcRunning,pkg_run:r.pkgRunning,mem_run:r.memRunning};})};
 }
 
 function renderAll(){
@@ -574,8 +574,19 @@ function renderCapacity(D){
   el('cap-true-pct').textContent=fmtP(D.trueCap);
   var gap=((D.staffedCap-D.trueCap)*100).toFixed(0);
   el('cap-gap-note').textContent='The '+gap+'-point gap for this period suggests available hours are not fully staffed or booked. Addressing this is your clearest path to revenue growth without adding new clients.';
-  makeBars('cap-dow-bars',D.dow,function(d){return d.avgTrueCap;},function(v){return fmtP(v);},'',true);
-  el('cap-monthly-grid').innerHTML=D.monthly.map(function(m){return'<div><div style="font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--light);margin-bottom:6px">'+m.label+'</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem">'+fmtP(m.trueCap)+'</div><div style="font-size:.62rem;color:var(--mid);margin-top:2px">True capacity</div><div class="cap-bar"><div class="cap-bar-fill" style="width:'+(m.trueCap*100).toFixed(0)+'%"></div></div></div>';}).join('');
+  el('cap-legend').innerHTML='<div class="legend-item"><span class="legend-swatch" style="background:var(--sage)"></span>True (of all possible hours)</div><div class="legend-item"><span class="legend-swatch" style="background:var(--clay)"></span>Staffed (of scheduled hours)</div>';
+  el('cap-dow-bars').innerHTML=D.dow.map(function(d){
+    var sW=Math.min(100,d.avgStaffedCap*100),tW=Math.min(100,d.avgTrueCap*100);
+    return '<div class="bar-row" style="grid-template-columns:40px 1fr 120px">'+
+      '<div class="bar-label">'+d.day.slice(0,3)+'</div>'+
+      '<div class="bar-track" style="height:11px;position:relative">'+
+        '<div class="bar-fill clay" style="width:'+sW.toFixed(1)+'%;position:absolute;left:0;top:0"></div>'+
+        '<div class="bar-fill" style="width:'+tW.toFixed(1)+'%;position:absolute;left:0;top:0"></div>'+
+      '</div>'+
+      '<div class="bar-val" style="font-size:.6rem">T '+fmtP(d.avgTrueCap)+' &middot; S '+fmtP(d.avgStaffedCap)+'</div>'+
+    '</div>';
+  }).join('');
+  el('cap-monthly-grid').innerHTML=D.monthly.map(function(m){return'<div><div style="font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--light);margin-bottom:6px">'+m.label+'</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem">'+fmtP(m.trueCap)+'</div><div style="font-size:.62rem;color:var(--mid);margin-top:2px">True capacity</div><div class="cap-bar"><div class="cap-bar-fill" style="width:'+(m.trueCap*100).toFixed(0)+'%"></div></div><div style="font-size:.62rem;color:var(--mid);margin-top:10px">Staffed '+fmtP(m.staffedCap)+'</div><div class="cap-bar"><div class="cap-bar-fill" style="width:'+(m.staffedCap*100).toFixed(0)+'%;background:var(--clay)"></div></div></div>';}).join('');
   var upside=Math.max(0,(.50-D.trueCap)*D.avgSale*(D.appts/D.days)*90);
   el('cap-upside').textContent='At $'+D.avgSale.toFixed(0)+' avg sale, moving from '+fmtP(D.trueCap)+' to 50% true capacity could add roughly '+fmtK(upside)+' over the next quarter.';
   var low=D.dow.slice().sort(function(a,b){return a.avgTrueCap-b.avgTrueCap;})[0];
@@ -684,12 +695,12 @@ function drawLiabChart(D){
   canvas.onmouseleave=function(){tt.style.display='none';};
 }
 
-function makeBars(id,items,getValue,formatter,colorClass,alertLow){
+function makeBars(id,items,getValue,formatter,colorClass,alertLow,fixedMax){
   var container=el(id);if(!container)return;
-  var max=Math.max.apply(null,items.map(getValue).concat([.001]));
+  var max=fixedMax||Math.max.apply(null,items.map(getValue).concat([.001]));
   container.innerHTML='';
   items.forEach(function(item){
-    var val=getValue(item),pct=Math.max(0,(val/max*100)).toFixed(1);
+    var val=getValue(item),pct=Math.max(0,Math.min(100,val/max*100)).toFixed(1);
     var ia=alertLow&&val<max*.35;
     var row=document.createElement('div');row.className='bar-row';
     row.innerHTML='<div class="bar-label">'+(item.day||item.label||'').slice(0,3)+'</div><div class="bar-track"><div class="bar-fill '+(ia?'alert':(colorClass||''))+'" style="width:'+pct+'%"></div></div><div class="bar-val">'+formatter(val)+'</div>';
@@ -698,6 +709,7 @@ function makeBars(id,items,getValue,formatter,colorClass,alertLow){
 }
 
 var ML={net_cash:'Net Cash ($)',service_sales:'Service Sales ($)',true_cap:'True Capacity (%)',appts:'Appointments'};
+var MSHORT={net_cash:'Net Cash',service_sales:'Service Sales',true_cap:'True Capacity',appts:'Appointments'};
 function setMetric(m){
   currentMetric=m;
   document.querySelectorAll('.metric-btn').forEach(function(b){b.classList.remove('active-metric');});
@@ -716,16 +728,17 @@ function drawTrend(D){
   var cW=W-pad.left-pad.right,cH=H-pad.top-pad.bottom;
   var pts=D.daily.filter(function(d){return d.appts>0||d.net_cash!==0;});
   if(!pts.length)return;
+  var isCap=currentMetric==='true_cap';
   var vals=pts.map(function(d){return d[currentMetric];});
-  var maxVal=Math.max.apply(null,vals.concat([1]));
-  var minVal=Math.min.apply(null,vals.concat([0]));
-  if(minVal>0)minVal=0;
+  var maxVal,minVal;
+  if(isCap){maxVal=1;minVal=0;}
+  else{maxVal=Math.max.apply(null,vals.concat([1]));minVal=Math.min.apply(null,vals.concat([0]));if(minVal>0)minVal=0;}
   var span=maxVal-minVal||1;
   ctx.clearRect(0,0,W,H);
   ctx.strokeStyle='rgba(138,158,140,0.15)';ctx.lineWidth=1;
   for(var i=0;i<=4;i++){
     var y=pad.top+cH-(i/4)*cH;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+cW,y);ctx.stroke();
-    var v=minVal+(span/4)*i,lbl=currentMetric==='true_cap'?(v*100).toFixed(0)+'%':currentMetric==='appts'?Math.round(v):'$'+Math.round(v/1000)+'k';
+    var v=minVal+(span/4)*i,lbl=isCap?(v*100).toFixed(0)+'%':currentMetric==='appts'?Math.round(v):'$'+Math.round(v/1000)+'k';
     ctx.fillStyle='#999';ctx.font='10px DM Mono';ctx.textAlign='right';ctx.fillText(lbl,pad.left-8,y+4);
   }
   var seen={};
@@ -740,25 +753,33 @@ function drawTrend(D){
     }
   });
   function py(val){return pad.top+cH-((val-minVal)/span)*cH;}
-  ctx.beginPath();
-  pts.forEach(function(d,i){var x=pad.left+(i/(pts.length-1||1))*cW,y=py(d[currentMetric]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
-  var grad=ctx.createLinearGradient(0,pad.top,0,pad.top+cH);
-  grad.addColorStop(0,'rgba(138,158,140,0.25)');grad.addColorStop(1,'rgba(138,158,140,0)');
-  ctx.lineTo(pad.left+cW,pad.top+cH);ctx.lineTo(pad.left,pad.top+cH);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
-  ctx.beginPath();
-  pts.forEach(function(d,i){var x=pad.left+(i/(pts.length-1||1))*cW,y=py(d[currentMetric]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
-  ctx.strokeStyle='#5a6e5c';ctx.lineWidth=1.5;ctx.stroke();
-  var byC=D.daily.slice().sort(function(a,b){return b.net_cash-a.net_cash;});
-  el('top-days').innerHTML=byC.slice(0,5).map(function(d){return'<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0"><span>'+d.date+'</span><span style="color:var(--sage-dark)">'+fmtK(d.net_cash)+'</span></div>';}).join('');
-  el('low-days').innerHTML=byC.slice(-5).reverse().map(function(d){return'<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0"><span>'+d.date+'</span><span style="color:var(--alert)">'+fmtK(d.net_cash)+'</span></div>';}).join('');
+  function drawLine(key,color,fill){
+    ctx.beginPath();
+    pts.forEach(function(d,i){var x=pad.left+(i/(pts.length-1||1))*cW,y=py(d[key]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+    if(fill){var g=ctx.createLinearGradient(0,pad.top,0,pad.top+cH);g.addColorStop(0,'rgba(138,158,140,0.22)');g.addColorStop(1,'rgba(138,158,140,0)');
+      ctx.lineTo(pad.left+cW,pad.top+cH);ctx.lineTo(pad.left,pad.top+cH);ctx.closePath();ctx.fillStyle=g;ctx.fill();
+      ctx.beginPath();pts.forEach(function(d,i){var x=pad.left+(i/(pts.length-1||1))*cW,y=py(d[key]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});}
+    ctx.strokeStyle=color;ctx.lineWidth=1.6;ctx.stroke();
+  }
+  drawLine(currentMetric,'#5a6e5c',!isCap);
+  if(isCap)drawLine('staffed_cap','#c4a882',false);
+  el('trend-legend').innerHTML=isCap
+    ?'<div class="legend-item"><span class="legend-swatch" style="background:#5a6e5c"></span>True Capacity</div><div class="legend-item"><span class="legend-swatch" style="background:#c4a882"></span>Staffed Capacity</div>'
+    :'<div class="legend-item"><span class="legend-swatch" style="background:#5a6e5c"></span>'+MSHORT[currentMetric]+'</div>';
+  var mfmt=isCap?fmtP:currentMetric==='appts'?function(v){return Math.round(v);}:fmtK;
+  var ranked=D.daily.filter(function(d){return d.appts>0;}).sort(function(a,b){return b[currentMetric]-a[currentMetric];});
+  el('top-days-title').textContent='Top 5 '+MSHORT[currentMetric]+' Days';
+  el('low-days-title').textContent='5 Lowest '+MSHORT[currentMetric]+' Days';
+  el('top-days').innerHTML=ranked.slice(0,5).map(function(d){return'<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0"><span>'+d.date+'</span><span style="color:var(--sage-dark)">'+mfmt(d[currentMetric])+'</span></div>';}).join('');
+  el('low-days').innerHTML=ranked.slice(-5).reverse().map(function(d){return'<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0"><span>'+d.date+'</span><span style="color:var(--alert)">'+mfmt(d[currentMetric])+'</span></div>';}).join('');
   var tt=el('tooltip');
   canvas.onmousemove=function(e){
     var rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left-pad.left;
     var idx=Math.round((mx/cW)*(pts.length-1));
     if(idx<0||idx>=pts.length){tt.style.display='none';return;}
-    var d=pts[idx],fmt=currentMetric==='true_cap'?fmtP(d[currentMetric]):currentMetric==='appts'?d[currentMetric].toFixed(0):fmtK(d[currentMetric]);
+    var d=pts[idx],fmt=isCap?fmtP(d[currentMetric]):currentMetric==='appts'?d[currentMetric].toFixed(0):fmtK(d[currentMetric]);
     tt.style.display='block';tt.style.left=(e.clientX+12)+'px';tt.style.top=(e.clientY-10)+'px';
-    tt.innerHTML=d.date+'<br>'+ML[currentMetric]+': '+fmt;
+    tt.innerHTML=d.date+'<br>'+(isCap?'True Capacity: '+fmt+'<br>Staffed Capacity: '+fmtP(d.staffed_cap):ML[currentMetric]+': '+fmt);
   };
   canvas.onmouseleave=function(){tt.style.display='none';};
 }
