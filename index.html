@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spa Cash Flow Dashboard</title>
+<title>DTS KPIs</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
 :root{--sage:#8a9e8c;--sage-light:#b8c9ba;--sage-dark:#5a6e5c;--cream:#f5f0e8;--clay:#c4a882;--clay-dark:#9e7f5a;--charcoal:#2c2c2c;--mid:#666;--light:#999;--border:rgba(138,158,140,0.25);--card-bg:rgba(255,252,246,0.9);--alert:#c47a5a}
@@ -19,6 +19,16 @@ body{font-family:'DM Mono',monospace;background:var(--cream);color:var(--charcoa
 #error-msg p{font-size:.68rem;color:var(--mid);max-width:400px;text-align:center;line-height:1.8}
 #error-msg button{font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;padding:10px 24px;border:1px solid var(--sage);background:none;cursor:pointer;color:var(--sage-dark)}
 #app{display:none}
+#gate{position:fixed;inset:0;background:var(--cream);display:flex;align-items:center;justify-content:center;z-index:2000;background-image:radial-gradient(ellipse at 30% 20%,rgba(184,201,186,0.35) 0%,transparent 55%),radial-gradient(ellipse at 75% 85%,rgba(196,168,130,0.25) 0%,transparent 55%)}
+.gate-box{background:var(--card-bg);border:1px solid var(--border);padding:44px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 12px 48px rgba(90,110,92,0.12)}
+.gate-box h2{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:1.9rem;color:var(--charcoal);line-height:1.1}
+.gate-box h2 em{font-style:italic;color:var(--sage-dark)}
+.gate-box p{font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:var(--light);margin:10px 0 26px}
+.gate-box input{font-family:'DM Mono',monospace;font-size:.8rem;width:100%;padding:11px 14px;border:1px solid var(--border);background:var(--cream);color:var(--charcoal);text-align:center;letter-spacing:.1em}
+.gate-box input:focus{outline:none;border-color:var(--sage)}
+.gate-box button{font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;width:100%;padding:11px;margin-top:12px;border:1px solid var(--sage-dark);background:var(--sage-dark);color:var(--cream);cursor:pointer;transition:opacity .2s}
+.gate-box button:hover{opacity:.88}
+#gate-err{display:none;font-size:.62rem;letter-spacing:.08em;color:var(--alert);margin-top:14px}
 header{padding:28px 48px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-end}
 .logo-area h1{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;letter-spacing:.04em;color:var(--charcoal);line-height:1}
 .logo-area h1 em{font-style:italic;color:var(--sage-dark)}
@@ -105,12 +115,13 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
 </style>
 </head>
 <body>
+<div id="gate"><div class="gate-box"><h2>DTS <em>KPIs</em></h2><p>Enter password</p><input type="password" id="gate-input" autocomplete="off" onkeydown="if(event.key==='Enter'){submitPassword();}"><button onclick="submitPassword()">Enter</button><div id="gate-err">Incorrect password. Try again.</div></div></div>
 <div id="loading"><div class="spinner"></div><h2>Loading your dashboard&hellip;</h2><p>Fetching live data from Google Sheets</p></div>
 <div id="error-msg"><h2>Couldn't load data</h2><p>There was a problem fetching your Google Sheet. Make sure it's published to the web.</p><button onclick="loadData()">Try again</button></div>
 <div class="tooltip" id="tooltip"></div>
 <div id="app">
 <header>
-  <div class="logo-area"><h1>Spa <em>Cash Flow</em></h1></div>
+  <div class="logo-area"><h1>DTS <em>KPIs</em></h1></div>
   <div class="header-meta"><div><span class="live-dot"></span><span id="hdr-updated">-</span></div><div id="hdr-days">-</div></div>
 </header>
 <div class="filter-bar">
@@ -218,6 +229,9 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
 </div>
 <script>
 var SHEET_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQfueNweTFlHeobBmAvpzpae6H1rtfBjY0rTZf_8ozQHUobpY6Wsl0JfsBI4qS8CDfzpr2m3KCrjq7c/pub?output=csv&gid=1038672996';
+/* ====== SET YOUR PASSWORD HERE ====== */
+var DASH_PASSWORD='changeme';
+/* ==================================== */
 var MN={'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June','07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
 var DOW=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 var allRows=[],filtered=[],currentMetric='net_cash';
@@ -242,6 +256,18 @@ function rc(hdrs,cands){
   for(var i=0;i<cands.length;i++){for(var j=0;j<hdrs.length;j++){if(hdrs[j]===cands[i])return hdrs[j];}}
   for(var i=0;i<cands.length;i++){for(var j=0;j<hdrs.length;j++){if(hdrs[j].toLowerCase().indexOf(cands[i].toLowerCase())>=0)return hdrs[j];}}
   return null;
+}
+
+function isAuthed(){try{return sessionStorage.getItem('dash_ok')==='1';}catch(e){return window._authed===true;}}
+function markAuthed(){try{sessionStorage.setItem('dash_ok','1');}catch(e){window._authed=true;}}
+function submitPassword(){
+  var v=el('gate-input').value;
+  if(v===DASH_PASSWORD){markAuthed();el('gate').style.display='none';loadData();}
+  else{el('gate-err').style.display='block';el('gate-input').value='';el('gate-input').focus();}
+}
+function initGate(){
+  if(isAuthed()){el('gate').style.display='none';loadData();}
+  else{el('gate').style.display='flex';setTimeout(function(){el('gate-input').focus();},100);}
 }
 
 function loadData(){
@@ -512,8 +538,14 @@ function renderClients(D){
     '<div class="kpi-card'+(D.newPrebook<.35?' alert':'')+'"><div class="kpi-label">New Client Prebook</div><div class="kpi-value">'+fmtP(D.newPrebook)+'</div><div class="kpi-sub">'+((D.allPrebook-D.newPrebook)*100).toFixed(0)+'pts below overall rate</div><div class="kpi-insight '+(D.newPrebook<.35?'warn':'good')+'">'+(D.newPrebook<.35?'Retention gap to close':'Strong new client rebook')+'</div></div>';
   var maxNC=Math.max.apply(null,D.monthly.map(function(m){return m.newClients;}).concat([1]));
   el('new-client-bars').innerHTML=D.monthly.map(function(m){return'<div class="bar-row"><div class="bar-label">'+m.label.slice(0,3)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(m.newClients/maxNC*100).toFixed(1)+'%"></div></div><div class="bar-val">'+Math.round(m.newClients)+'</div></div>';}).join('');
-  var pb=Math.round(D.newClients*D.newPrebook),uplift=Math.max(0,Math.round(D.newClients*(.40-D.newPrebook)));
-  el('retention-math').innerHTML='Of your <strong>'+Math.round(D.newClients)+' new clients</strong> this period, roughly <strong>'+pb+' prebooked</strong> - meaning ~'+(Math.round(D.newClients)-pb)+' came once without scheduling a return.<br><br>Raising new client prebook to 40% would add ~<strong>'+uplift+' more returning clients</strong> - at $'+D.avgSale.toFixed(0)+' avg, that\'s '+fmtK(uplift*D.avgSale)+' in additional revenue.';
+  var cur=D.newPrebook,nc=Math.round(D.newClients),pb=Math.round(D.newClients*cur);
+  var target;
+  if(cur<0.40)target=0.40;else if(cur<0.55)target=0.60;else if(cur<0.65)target=0.70;else target=Math.min(0.90,cur+0.10);
+  var uplift=Math.max(0,Math.round(D.newClients*(target-cur)));
+  var tPct=Math.round(target*100)+'%';
+  var line1='Of your <strong>'+nc+' new clients</strong> this period, roughly <strong>'+pb+' prebooked</strong> their next visit'+(cur>=0.40?' - a strong '+fmtP(cur)+' rate.':' - meaning ~'+(nc-pb)+' came once without scheduling a return.');
+  var line2=(uplift>0?'Lifting new client prebook to '+tPct+' would add ~<strong>'+uplift+' more returning clients</strong> - at $'+D.avgSale.toFixed(0)+' avg, that\'s '+fmtK(uplift*D.avgSale)+' in additional revenue.':'You\'re already prebooking new clients at a high rate - protect it, since it\'s one of your strongest retention levers.');
+  el('retention-math').innerHTML=line1+'<br><br>'+line2;
   makeBars('appts-dow-bars',D.dow,function(d){return d.avgAppts;},function(v){return v.toFixed(1);});
 }
 
@@ -604,7 +636,7 @@ function showView(id,btn){
 }
 
 window.addEventListener('resize',function(){if(el('view-trends').classList.contains('active'))drawTrend(window._D||compute(filtered));});
-loadData();
+initGate();
 </script>
 </body>
 </html>
