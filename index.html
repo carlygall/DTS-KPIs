@@ -144,7 +144,7 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
 <body>
 <div id="gate"><div class="gate-box"><h2>DTS <em>KPIs</em></h2><p>Enter password</p><input type="password" id="gate-input" autocomplete="off" onkeydown="if(event.key==='Enter'){submitPassword();}"><button onclick="submitPassword()">Enter</button><div id="gate-err">Incorrect password. Try again.</div></div></div>
 <div id="loading"><div class="spinner"></div><h2>Loading your dashboard&hellip;</h2><p>Fetching live data from Google Sheets</p></div>
-<div id="error-msg"><h2>Couldn't load data</h2><p>There was a problem fetching your Google Sheet. Make sure it's published to the web.</p><button onclick="loadData()">Try again</button></div>
+<div id="error-msg"><h2>Couldn't load data</h2><p>There was a problem fetching your Google Sheet. Make sure it's published to the web.</p><p id="error-detail" style="font-family:'DM Mono',monospace;color:var(--alert);max-width:460px;font-size:.62rem"></p><button onclick="loadData()">Try again</button></div>
 <div class="tooltip" id="tooltip"></div>
 <div id="app">
 <header>
@@ -174,6 +174,7 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
   <button onclick="showView('revenue',this)">Revenue Mix</button>
   <button onclick="showView('capacity',this)">Capacity</button>
   <button onclick="showView('clients',this)">Clients</button>
+  <button onclick="showView('liabilities',this)">Liabilities</button>
   <button onclick="showView('trends',this)">Daily Trends</button>
 </nav>
 <div class="view active" id="view-overview">
@@ -238,6 +239,17 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
   </div>
   <div class="panel"><div class="panel-title">Average Appointments by Day of Week</div><div class="bar-chart" id="appts-dow-bars"></div></div>
 </div>
+<div class="view" id="view-liabilities">
+  <div class="section-title">Deferred Revenue &amp; Liabilities</div>
+  <div class="kpi-grid" id="liab-cards" style="grid-template-columns:repeat(3,1fr)"></div>
+  <div class="two-col">
+    <div class="panel"><div class="panel-title">Liability Balance Over Time</div><canvas id="liabCanvas" height="240" style="width:100%;cursor:crosshair"></canvas><div class="donut-legend" id="liab-legend" style="flex-direction:row;flex-wrap:wrap;gap:20px;margin-top:16px"></div></div>
+    <div class="panel"><div class="panel-title">Outstanding Balance</div><div id="liab-summary" style="font-family:'Cormorant Garamond',serif;line-height:1.7"></div></div>
+  </div>
+  <div class="panel" style="overflow-x:auto"><div class="panel-title">Movement by Period</div><table class="month-table"><thead><tr>
+    <th>Period</th><th>GC &Delta;</th><th>Pkg &Delta;</th><th>Mem &Delta;</th><th>Total &Delta;</th><th>GC Balance</th><th>Pkg Balance</th><th>Mem Balance</th>
+  </tr></thead><tbody id="liab-tbody"></tbody></table></div>
+</div>
 <div class="view" id="view-trends">
   <div class="section-title">Daily Performance Trends</div>
   <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
@@ -268,7 +280,7 @@ function num(v){var n=parseFloat(String(v||'').replace(/[,$%]/g,''));return isNa
 function cap(v){var n=num(v);return n>1?n/100:n;}
 
 function parseCSV(text){
-  var lines=text.trim().split('\n');
+  var lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim().split('\n');
   var hdrs=lines[0].split(',').map(function(h){return h.trim().replace(/^"|"$/g,'');});
   return lines.slice(1).map(function(line){
     var vals=[],cur='',inQ=false;
@@ -303,8 +315,9 @@ function loadData(){
     if(!r.ok)throw new Error('HTTP '+r.status);return r.text();
   }).then(function(text){
     var rows=parseCSV(text);
-    if(!rows.length)throw new Error('empty');
+    if(!rows.length)throw new Error('The sheet returned no rows.');
     allRows=parseRows(rows);
+    if(!allRows.length)throw new Error('No rows with a valid date were found. Check that the "Today\'s Date" column still has real dates in it.');
     populateSelects();
     applyPreset('ytd');
     el('hdr-updated').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
@@ -312,7 +325,9 @@ function loadData(){
     el('loading').style.opacity='0';
     setTimeout(function(){el('loading').style.display='none';el('app').style.display='block';},400);
   }).catch(function(e){
-    console.error(e);el('loading').style.display='none';el('error-msg').style.display='flex';
+    console.error(e);
+    var det=el('error-detail');if(det)det.textContent=(e&&e.message)?e.message:String(e);
+    el('loading').style.display='none';el('error-msg').style.display='flex';
   });
 }
 
@@ -335,7 +350,10 @@ function parseRows(rows){
     trueCap:rc(h,["True Capacity % Booked","True Capacity"]),
     appts:rc(h,["Appointments All Clients Total #","Appointments All Clients Total"]),
     newClients:rc(h,["Appointments New Clients Total #","Appointments New Clients Total"]),
-    allPrebook:rc(h,["All Client Prebooking"]),newPrebook:rc(h,["New Client Prebooking"])
+    allPrebook:rc(h,["All Client Prebooking"]),newPrebook:rc(h,["New Client Prebooking"]),
+    gcRunning:rc(h,["Gift Card LIability Running Total","Gift Card Liability Running Total","Gift Card Liability Running"]),
+    pkgRunning:rc(h,["Package Liability Running Total","Package Liability Running"]),
+    memRunning:rc(h,["Membership Liability Running Total","Membership Liability Running"])
   };
   return rows.map(function(r){
     var d=new Date(r[C.date]);if(isNaN(d.getTime()))return null;
@@ -361,7 +379,9 @@ function parseRows(rows){
       cashIn:cashIn,cashOut:cashOut,netCash:netCash,liabChange:liabChange,
       staffedCap:cap(r[C.staffedCap]),trueCap:cap(r[C.trueCap]),
       appts:num(r[C.appts]),newClients:num(r[C.newClients]),
-      allPrebook:cap(r[C.allPrebook]),newPrebook:cap(r[C.newPrebook])};
+      allPrebook:cap(r[C.allPrebook]),newPrebook:cap(r[C.newPrebook]),
+      gcRunning:num(r[C.gcRunning]),pkgRunning:num(r[C.pkgRunning]),
+      memRunning:(C.memRunning&&String(r[C.memRunning]||'').trim()!==''?num(r[C.memRunning]):null)};
   }).filter(Boolean).sort(function(a,b){return a.date-b.date;});
 }
 
@@ -450,13 +470,16 @@ function compute(rows){
     var mr=mmap[key];
     function ms(k){return mr.reduce(function(a,r){return a+r[k];},0);}
     function ma(k){var v=mr.filter(function(r){return r[k]>0;});return v.length?v.reduce(function(a,r){return a+r[k];},0)/v.length:0;}
+    function lastRunM(k){for(var i=mr.length-1;i>=0;i--){if(mr[i][k]!=null)return mr[i][k];}return null;}
     return{key:key,label:MN[key.split('-')[1]]||key,
       netCash:ms('netCash'),cashIn:ms('cashIn'),cashOut:ms('cashOut'),
       serviceSales:ms('serviceSales'),productSales:ms('productSales'),
       appts:ms('appts'),newClients:ms('newClients'),
       avgSale:ma('avgSale'),trueCap:ma('trueCap'),staffedCap:ma('staffedCap'),
       tips:ms('tips'),liabChange:ms('liabChange'),
-      memSales:ms('memSales'),pkgSales:ms('pkgSales'),gcSales:ms('gcSales')};
+      memSales:ms('memSales'),pkgSales:ms('pkgSales'),gcSales:ms('gcSales'),
+      gcNet:ms('gcSales')-ms('gcUsage'),pkgNet:ms('pkgSales')-ms('pkgUsage'),memNet:ms('memSales')-ms('memUsage'),
+      gcEnd:lastRunM('gcRunning'),pkgEnd:lastRunM('pkgRunning'),memEnd:lastRunM('memRunning')};
   });
   var dmap={};DOW.forEach(function(d){dmap[d]=[];});
   rows.forEach(function(r){if(dmap[r.dow])dmap[r.dow].push(r);});
@@ -471,11 +494,15 @@ function compute(rows){
     gcSales:s('gcSales'),gcUsage:s('gcUsage'),pkgSales:s('pkgSales'),pkgUsage:s('pkgUsage'),
     memSales:s('memSales'),memUsage:s('memUsage'),refund:s('refund'),tips:s('tips'),
     liabChange:s('liabChange'),redemptions:s('redemptions'),
+    gcNet:s('gcSales')-s('gcUsage'),pkgNet:s('pkgSales')-s('pkgUsage'),memNet:s('memSales')-s('memUsage'),
+    gcEnd:(function(){for(var i=rows.length-1;i>=0;i--){if(rows[i].gcRunning!=null)return rows[i].gcRunning;}return null;})(),
+    pkgEnd:(function(){for(var i=rows.length-1;i>=0;i--){if(rows[i].pkgRunning!=null)return rows[i].pkgRunning;}return null;})(),
+    memEnd:(function(){for(var i=rows.length-1;i>=0;i--){if(rows[i].memRunning!=null)return rows[i].memRunning;}return null;})(),
     appts:s('appts'),newClients:s('newClients'),
     avgSale:av('avgSale'),trueCap:av('trueCap'),staffedCap:av('staffedCap'),
     allPrebook:av('allPrebook'),newPrebook:av('newPrebook'),
     days:rows.length,monthly:monthly,dow:dow,
-    daily:rows.map(function(r){return{date:r.dateStr,net_cash:r.netCash,service_sales:r.serviceSales,true_cap:r.trueCap,appts:r.appts};})};
+    daily:rows.map(function(r){return{date:r.dateStr,net_cash:r.netCash,service_sales:r.serviceSales,true_cap:r.trueCap,appts:r.appts,gc_run:r.gcRunning,pkg_run:r.pkgRunning,mem_run:r.memRunning};})};
 }
 
 function renderAll(){
@@ -485,9 +512,10 @@ function renderAll(){
     return;
   }
   var D=compute(filtered);
-  renderOverview(D);renderRevenue(D);renderCapacity(D);renderClients(D);
+  renderOverview(D);renderRevenue(D);renderCapacity(D);renderClients(D);renderLiabilities(D);
+  window._D=D;
   if(el('view-trends').classList.contains('active'))drawTrend(D);
-  else window._D=D;
+  if(el('view-liabilities').classList.contains('active'))drawLiabChart(D);
 }
 
 function renderOverview(D){
@@ -575,6 +603,87 @@ function renderClients(D){
   makeBars('appts-dow-bars',D.dow,function(d){return d.avgAppts;},function(v){return v.toFixed(1);});
 }
 
+function renderLiabilities(D){
+  function movement(sold,red,net){
+    return '<div class="kpi-sub">Sold '+fmtK(sold)+' &middot; Redeemed '+fmtK(red)+'</div>'+
+      '<div class="kpi-insight '+(net>=0?'good':'warn')+'">Net '+(net>=0?'+':'')+fmtK(net)+' this period</div>';
+  }
+  var memTracked=D.memEnd!=null;
+  var memCardValue=memTracked?'<div class="kpi-value">'+fmtK(D.memEnd)+'</div>':'<div class="kpi-value" style="color:var(--light)">&mdash;</div><div class="kpi-sub" style="color:var(--clay-dark)">Running total not yet tracked in sheet</div>';
+  el('liab-cards').innerHTML=
+    '<div class="kpi-card"><div class="kpi-label">Gift Card Liability</div><div class="kpi-value">'+fmtK(D.gcEnd)+'</div>'+movement(D.gcSales,D.gcUsage,D.gcNet)+'</div>'+
+    '<div class="kpi-card"><div class="kpi-label">Package Liability</div><div class="kpi-value">'+fmtK(D.pkgEnd)+'</div>'+movement(D.pkgSales,D.pkgUsage,D.pkgNet)+'</div>'+
+    '<div class="kpi-card"><div class="kpi-label">Membership Liability</div>'+memCardValue+movement(D.memSales,D.memUsage,D.memNet)+'</div>';
+  var trackedTotal=D.gcEnd+D.pkgEnd+(memTracked?D.memEnd:0);
+  var totalNet=D.gcNet+D.pkgNet+D.memNet;
+  el('liab-summary').innerHTML=
+    '<div style="font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--light);margin-bottom:6px">Total outstanding</div>'+
+    '<div style="font-size:2.2rem;color:var(--charcoal)">'+fmtK(trackedTotal)+'</div>'+
+    '<div style="font-size:.66rem;color:var(--mid);margin:4px 0 20px">What you owe in future services across gift cards, packages'+(memTracked?', and memberships.':' and packages. Memberships not included until their running total is entered.')+'</div>'+
+    '<div style="border-top:1px solid var(--border);padding-top:16px">'+
+    '<div style="display:flex;justify-content:space-between;padding:5px 0"><span style="color:var(--mid)">Gift cards</span><span>'+fmtK(D.gcEnd)+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;padding:5px 0"><span style="color:var(--mid)">Packages</span><span>'+fmtK(D.pkgEnd)+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;padding:5px 0"><span style="color:'+(memTracked?'var(--mid)':'var(--light)')+'">Memberships</span><span style="color:'+(memTracked?'var(--charcoal)':'var(--light)')+'">'+(memTracked?fmtK(D.memEnd):'pending')+'</span></div>'+
+    '</div>'+
+    '<div style="margin-top:18px;background:'+(totalNet>=0?'rgba(138,158,140,0.1)':'rgba(196,122,90,0.1)')+';border:1px solid var(--border);padding:14px;font-size:.72rem;line-height:1.7">Net movement this period across all three: <strong>'+(totalNet>=0?'+':'')+fmtK(totalNet)+'</strong>. '+(totalNet>=0?'You sold more prepaid value than clients redeemed, so what you owe in future services grew.':'Clients redeemed more than they bought, so your outstanding obligation shrank.')+'</div>';
+  var tb=D.monthly.map(function(m){
+    var tot=m.gcNet+m.pkgNet+m.memNet;
+    function c(v){return '<td class="'+(v<0?'neg':'')+'">'+(v>=0?'+':'')+fmtK(v)+'</td>';}
+    return '<tr><td>'+m.label+'</td>'+c(m.gcNet)+c(m.pkgNet)+c(m.memNet)+c(tot)+'<td>'+fmtK(m.gcEnd)+'</td><td>'+fmtK(m.pkgEnd)+'</td><td>'+(m.memEnd!=null?fmtK(m.memEnd):'&mdash;')+'</td></tr>';
+  }).join('');
+  el('liab-tbody').innerHTML=tb;
+}
+
+function drawLiabChart(D){
+  window._D=D;
+  var canvas=el('liabCanvas');if(!canvas||!D)return;
+  var pts=D.daily;if(!pts.length)return;
+  canvas.width=(canvas.offsetWidth||700)*(window.devicePixelRatio||1);
+  canvas.height=240*(window.devicePixelRatio||1);
+  var ctx=canvas.getContext('2d');ctx.scale(window.devicePixelRatio||1,window.devicePixelRatio||1);
+  var W=canvas.offsetWidth||700,H=240,pad={top:20,right:20,bottom:40,left:58};
+  var cW=W-pad.left-pad.right,cH=H-pad.top-pad.bottom;
+  var series=[{key:'gc_run',color:'#8a9e8c',label:'Gift Cards'},{key:'pkg_run',color:'#c4a882',label:'Packages'}];
+  var memTracked=pts.some(function(d){return d.mem_run!=null;});
+  if(memTracked)series.push({key:'mem_run',color:'#6b7f9e',label:'Memberships'});
+  var maxVal=0;
+  pts.forEach(function(d){series.forEach(function(s){if(d[s.key]>maxVal)maxVal=d[s.key];});});
+  maxVal=maxVal*1.1||1;
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(138,158,140,0.15)';ctx.lineWidth=1;
+  for(var i=0;i<=4;i++){
+    var y=pad.top+cH-(i/4)*cH;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+cW,y);ctx.stroke();
+    ctx.fillStyle='#999';ctx.font='10px DM Mono';ctx.textAlign='right';ctx.fillText('$'+Math.round((maxVal/4)*i/1000)+'k',pad.left-8,y+4);
+  }
+  var seen={};
+  pts.forEach(function(d,i){
+    var m=d.date.slice(0,7);
+    if(!seen[m]){seen[m]=1;var x=pad.left+(i/(pts.length-1||1))*cW;
+      ctx.fillStyle='#aaa';ctx.font='9px DM Mono';ctx.textAlign='left';
+      var mn=MN[m.slice(5)];ctx.fillText(mn?mn.slice(0,3):m.slice(5),x+3,pad.top+cH+20);
+    }
+  });
+  series.forEach(function(s){
+    ctx.beginPath();
+    pts.forEach(function(d,i){if(d[s.key]==null)return;var x=pad.left+(i/(pts.length-1||1))*cW,y=pad.top+cH-(d[s.key]/maxVal)*cH;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+    ctx.strokeStyle=s.color;ctx.lineWidth=1.8;ctx.stroke();
+  });
+  el('liab-legend').innerHTML=series.map(function(s){return'<div class="legend-item"><span class="legend-swatch" style="background:'+s.color+'"></span>'+s.label+'</div>';}).join('')+
+    (memTracked?'':'<div class="legend-item"><span class="legend-swatch" style="background:var(--light)"></span><span style="color:var(--light)">Memberships (pending)</span></div>');
+  var tt=el('tooltip');
+  canvas.onmousemove=function(e){
+    var rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left-pad.left;
+    var idx=Math.round((mx/cW)*(pts.length-1));
+    if(idx<0||idx>=pts.length){tt.style.display='none';return;}
+    var d=pts[idx];
+    var html=d.date+'<br>Gift Cards: '+fmtK(d.gc_run)+'<br>Packages: '+fmtK(d.pkg_run);
+    if(d.mem_run!=null)html+='<br>Memberships: '+fmtK(d.mem_run);
+    tt.style.display='block';tt.style.left=(e.clientX+12)+'px';tt.style.top=(e.clientY-10)+'px';
+    tt.innerHTML=html;
+  };
+  canvas.onmouseleave=function(){tt.style.display='none';};
+}
+
 function makeBars(id,items,getValue,formatter,colorClass,alertLow){
   var container=el(id);if(!container)return;
   var max=Math.max.apply(null,items.map(getValue).concat([.001]));
@@ -659,9 +768,13 @@ function showView(id,btn){
   document.querySelectorAll('nav button').forEach(function(b){b.classList.remove('active');});
   el('view-'+id).classList.add('active');if(btn)btn.classList.add('active');
   if(id==='trends')setTimeout(function(){drawTrend(window._D||compute(filtered));},50);
+  if(id==='liabilities')setTimeout(function(){drawLiabChart(window._D||compute(filtered));},50);
 }
 
-window.addEventListener('resize',function(){if(el('view-trends').classList.contains('active'))drawTrend(window._D||compute(filtered));});
+window.addEventListener('resize',function(){
+  if(el('view-trends').classList.contains('active'))drawTrend(window._D||compute(filtered));
+  if(el('view-liabilities').classList.contains('active'))drawLiabChart(window._D||compute(filtered));
+});
 initGate();
 </script>
 </body>
