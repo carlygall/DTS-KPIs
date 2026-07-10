@@ -152,6 +152,9 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
   <div class="header-meta"><div><span class="live-dot"></span><span id="hdr-updated">-</span></div><div id="hdr-days">-</div></div>
 </header>
 <div class="filter-bar">
+  <button class="filter-btn" onclick="setPreset('today',this)">Today</button>
+  <button class="filter-btn" onclick="setPreset('this_week',this)">This Week</button>
+  <div class="filter-divider"></div>
   <button class="filter-btn active" onclick="setPreset('ytd',this)">YTD</button>
   <button class="filter-btn" onclick="setPreset('q1',this)">Q1</button>
   <button class="filter-btn" onclick="setPreset('q2',this)">Q2</button>
@@ -268,7 +271,7 @@ nav button.active{color:var(--sage-dark);border-bottom-color:var(--sage)}
 <script>
 var SHEET_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQfueNweTFlHeobBmAvpzpae6H1rtfBjY0rTZf_8ozQHUobpY6Wsl0JfsBI4qS8CDfzpr2m3KCrjq7c/pub?output=csv&gid=1038672996';
 /* ====== SET YOUR PASSWORD HERE ====== */
-var DASH_PASSWORD='sp4lun3ll4!';
+var DASH_PASSWORD='changeme';
 /* ==================================== */
 var MN={'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June','07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
 var DOW=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -408,11 +411,23 @@ function populateSelects(){
 
 function applyPreset(preset){
   var now=new Date(),y=now.getFullYear(),f,t,lbl;
-  if(preset==='ytd'){f=new Date(y,0,1);t=new Date();lbl='Year to Date';}
+  if(preset==='today'){
+    var a=(allRows.length?new Date(allRows[allRows.length-1].date):new Date());
+    f=new Date(a);t=new Date(a);
+    lbl='Today - '+(a.getMonth()+1)+'/'+a.getDate()+'/'+a.getFullYear();
+  }
+  else if(preset==='this_week'){
+    var a2=(allRows.length?new Date(allRows[allRows.length-1].date):new Date());
+    var mon=new Date(a2);var dy=mon.getDay();mon.setDate(mon.getDate()-(dy===0?6:dy-1));
+    f=mon;t=new Date(a2);
+    lbl='This week - '+(mon.getMonth()+1)+'/'+mon.getDate()+' to '+(a2.getMonth()+1)+'/'+a2.getDate();
+  }
+  else if(preset==='ytd'){f=new Date(y,0,1);t=new Date();lbl='Year to Date';}
   else if(preset==='q1'){f=new Date(y,0,1);t=new Date(y,2,31);lbl='Q1 - Jan to Mar';}
   else if(preset==='q2'){f=new Date(y,3,1);t=new Date(y,5,30);lbl='Q2 - Apr to Jun';}
   else if(preset==='q3'){f=new Date(y,6,1);t=new Date(y,8,30);lbl='Q3 - Jul to Sep';}
   else if(preset==='q4'){f=new Date(y,9,1);t=new Date(y,11,31);lbl='Q4 - Oct to Dec';}
+  f.setHours(0,0,0,0);
   t.setHours(23,59,59);
   filtered=allRows.filter(function(r){return r.date>=f&&r.date<=t;});
   el('range-label').textContent=lbl;
